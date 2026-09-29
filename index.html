@@ -2,93 +2,133 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>NeoPong</title>
+    <title>NeoPong - Ana Menü</title>
     <style>
         body { text-align: center; background-color: #222; color: white; font-family: sans-serif; }
         canvas { background-color: #718c5a; border: 2px solid #fff; margin-top: 20px; }
+        #menu { margin-top: 100px; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; border-radius: 5px; border: none; }
+        #btnResmi { background-color: #3498db; color: white; }
+        #btnP2P { background-color: #2ecc71; color: white; }
+        input { padding: 10px; font-size: 16px; margin: 10px; border-radius: 5px; border: none; text-align: center; }
     </style>
 </head>
 <body>
-    <h1>NeoPong</h1>
-    <p id="durum">Sunucuya bağlanılıyor...</p>
-    <canvas id="oyunEkrani" width="800" height="400"></canvas>
+    <!-- 1. GİRİŞ MENÜSÜ -->
+    <div id="menu">
+        <h1 style="font-size: 3em;">NeoPong</h1>
+        <p style="color: #aaa;">Sunucu Gecikmesi (Ping): <span id="pingYazisi" style="color: white; font-weight: bold;">Ölçülüyor...</span></p>
+        
+        <hr style="width: 400px; border-color: #444; margin: 30px auto;">
+        
+        <h3>Seçenek A: Merkezi Sunucu</h3>
+        <p style="font-size: 0.9em; color: #ccc;">Oracle bulut sunucusu üzerinden oynanır. Herkese açıktır.</p>
+        <button id="btnResmi">Resmi Sunucuya Katıl</button>
+        
+        <br><br><br>
+        
+        <h3>Seçenek B: Sıfır Ping (Özel P2P Oda)</h3>
+        <p style="font-size: 0.9em; color: #ccc;">Sadece aynı ağdaki (Okul) oyuncular içindir. Gecikme 0 ms'dir.</p>
+        <input type="text" id="odaKodu" placeholder="Oda Adı Girin (Örn: 9A)">
+        <br>
+        <button id="btnP2P">Özel Odaya Kur / Katıl</button>
+    </div>
+
+    <!-- 2. OYUN EKRANI (Başlangıçta Gizlidir) -->
+    <div id="oyunAlani" style="display: none;">
+        <h1>NeoPong</h1>
+        <p id="durum">Oyuna giriliyor...</p>
+        <canvas id="oyunEkrani" width="800" height="400"></canvas>
+    </div>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-        // 1. ÖNCE SOCKET BAĞLANTISINI KURUYORUZ
+        // ORACLE SUNUCUSUNA BAĞLANTI (Hem santral hem resmi sunucu görevinde)
         const oracleIP = "http://132.226.192.255:3000";
         const socket = io(oracleIP);
         
-        // 2. SONRA PING İŞLEMLERİNİ YAPIYORUZ
-        let ping = 0;
-        
-        // Saniyede bir kez sunucuya anlık saati gönder
-        setInterval(() => {
-            socket.emit('pingCheck', Date.now());
-        }, 1000);
-
-        // Sunucudan saat geri geldiğinde aradaki farkı hesapla
-        socket.on('pongCheck', (gonderilenZaman) => {
-            ping = Date.now() - gonderilenZaman;
-        });
-        
+        // Arayüz Değişkenleri
+        const menuDiv = document.getElementById('menu');
+        const oyunAlaniDiv = document.getElementById('oyunAlani');
+        const pingYazisi = document.getElementById('pingYazisi');
+        const durumMetni = document.getElementById('durum');
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
-        const durumMetni = document.getElementById('durum');
 
-        socket.on('connect', () => {
-            durumMetni.innerText = "Bağlanıldı! Hareket etmek için W-A-S-D veya Yön Tuşlarını kullanın.";
-            durumMetni.style.color = "lightgreen";
+        // Ping Ölçümü (Arka planda ana menüdeyken ölçmeye başlar)
+        setInterval(() => { socket.emit('pingCheck', Date.now()); }, 1000);
+        socket.on('pongCheck', (zaman) => {
+            pingYazisi.innerText = (Date.now() - zaman) + " ms";
         });
 
-        // Oyuncunun bastığı tuşları tutan obje
+        // Tuş Dinleme Fonksiyonu
         const inputs = { up: false, down: false, left: false, right: false };
+        function klavyeDinle() {
+            window.addEventListener('keydown', (e) => {
+                if (['w', 'ArrowUp'].includes(e.key)) inputs.up = true;
+                if (['s', 'ArrowDown'].includes(e.key)) inputs.down = true;
+                if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = true;
+                if (['d', 'ArrowRight'].includes(e.key)) inputs.right = true;
+                socket.emit('input', inputs);
+            });
+            window.addEventListener('keyup', (e) => {
+                if (['w', 'ArrowUp'].includes(e.key)) inputs.up = false;
+                if (['s', 'ArrowDown'].includes(e.key)) inputs.down = false;
+                if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = false;
+                if (['d', 'ArrowRight'].includes(e.key)) inputs.right = false;
+                socket.emit('input', inputs);
+            });
+        }
 
-        // Tuşa basıldığında
-        window.addEventListener('keydown', (e) => {
-            if (['w', 'ArrowUp'].includes(e.key)) inputs.up = true;
-            if (['s', 'ArrowDown'].includes(e.key)) inputs.down = true;
-            if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = true;
-            if (['d', 'ArrowRight'].includes(e.key)) inputs.right = true;
-            socket.emit('input', inputs);
-        });
+        // ---------------------------------------------------------
+        // SEÇENEK A: RESMİ SUNUCUYA KATILIM
+        // ---------------------------------------------------------
+        document.getElementById('btnResmi').addEventListener('click', () => {
+            menuDiv.style.display = "none";
+            oyunAlaniDiv.style.display = "block";
+            durumMetni.innerText = "Resmi Sunucuya Bağlanıldı! (W-A-S-D ile hareket et)";
+            durumMetni.style.color = "lightgreen";
+            
+            // Sunucuya "beni resmi odaya al" mesajı gönder
+            socket.emit('join-official'); 
+            klavyeDinle();
 
-        // Tuş bırakıldığında
-        window.addEventListener('keyup', (e) => {
-            if (['w', 'ArrowUp'].includes(e.key)) inputs.up = false;
-            if (['s', 'ArrowDown'].includes(e.key)) inputs.down = false;
-            if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = false;
-            if (['d', 'ArrowRight'].includes(e.key)) inputs.right = false;
-            socket.emit('input', inputs);
-        });
-
-        // Sunucudan saniyede 60 kez gelen veriyi ekrana çizme
-        socket.on('oyunDurumu', (state) => {
-            // Sahayı temizle
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Topu çiz
-            ctx.beginPath();
-            ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
-            ctx.fillStyle = "white";
-            ctx.fill();
-            ctx.stroke();
-
-            // Tüm oyuncuları çiz
-            for (let id in state.players) {
-                let p = state.players[id];
+            // Saniyede 60 kez gelen çizimi ekrana yansıt
+            socket.on('oyunDurumu', (state) => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Topu çiz
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                // Kendi karakterimizi mavi, diğerlerini kırmızı yapalım
-                ctx.fillStyle = (id === socket.id) ? "#3498db" : "#e74c3c";
-                ctx.fill();
-                ctx.stroke();
-            }
+                ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "white"; ctx.fill(); ctx.stroke();
 
-            // Ping değerini sol üst köşeye yazdır (Döngünün dışına alındı)
-            ctx.fillStyle = "white";
-            ctx.font = "16px Arial";
-            ctx.fillText("Ping: " + ping + " ms", 10, 20);
+                // Oyuncuları çiz
+                for (let id in state.players) {
+                    let p = state.players[id];
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = (id === socket.id) ? "#3498db" : "#e74c3c";
+                    ctx.fill(); ctx.stroke();
+                }
+            });
+        });
+
+        // ---------------------------------------------------------
+        // SEÇENEK B: P2P ÖZEL ODA KURULUMU
+        // ---------------------------------------------------------
+        document.getElementById('btnP2P').addEventListener('click', () => {
+            const oda = document.getElementById('odaKodu').value;
+            if(!oda) return alert("Lütfen bir oda adı girin!");
+            
+            menuDiv.style.display = "none";
+            oyunAlaniDiv.style.display = "block";
+            durumMetni.innerText = "P2P WebRTC Bağlantısı Bekleniyor... (" + oda + " odası)";
+            durumMetni.style.color = "yellow";
+            
+            // Oracle'a sadece tanıştırma(santral) yapması için oda adını yolla
+            socket.emit('join-p2p', oda); 
+            
+            // NOT: Tarayıcılar arası doğrudan bağlantı (WebRTC) kodları buraya gelecek.
         });
     </script>
 </body>
