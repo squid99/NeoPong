@@ -15,7 +15,18 @@
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-        // BURAYA KENDİ ORACLE IP ADRESİNİ YAZ
+
+        let ping = 0;
+        // Saniyede bir kez sunucuya anlık saati gönder
+        setInterval(() => {
+            socket.emit('pingCheck', Date.now());
+        }, 1000);
+
+        // Sunucudan saat geri geldiğinde aradaki farkı hesapla
+        socket.on('pongCheck', (gonderilenZaman) => {
+            ping = Date.now() - gonderilenZaman;
+        });
+        
         const oracleIP = "http://132.226.192.255:3000";
         const socket = io(oracleIP);
         
@@ -70,6 +81,10 @@
                 ctx.fillStyle = (id === socket.id) ? "#3498db" : "#e74c3c";
                 ctx.fill();
                 ctx.stroke();
+                // Ping değerini sol üst köşeye yazdır
+                ctx.fillStyle = "white";
+                ctx.font = "16px Arial";
+                ctx.fillText("Ping: " + ping + " ms", 10, 20);
             }
         });
     </script>
