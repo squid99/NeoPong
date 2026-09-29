@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>Özel NeoPong</title>
+    <style>
+        body { text-align: center; background-color: #222; color: white; font-family: sans-serif; }
+        canvas { background-color: #718c5a; border: 2px solid #fff; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Okul NeoPong Sunucusu</h1>
+    <p id="durum">Sunucuya bağlanılıyor...</p>
+    
+    <!-- Oyunun çizileceği alan (Canvas) -->
+    <canvas id="oyunEkrani" width="800" height="400"></canvas>
+
+    <!-- Gerçek zamanlı bağlantı için Socket.IO kütüphanesi -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        // BURAYA KENDİ ORACLE IP ADRESİNİ YAZ (Örnek: http://152.67.12.34:3000)
+        const oracleIP = "http://132.226.192.255:3000";
+        
+        const socket = io(oracleIP);
+        const durumMetni = document.getElementById('durum');
+
+        // Bağlantı başarılı olduğunda
+        socket.on('connect', () => {
+            durumMetni.innerText = "Sunucuya başarıyla bağlanıldı! (ID: " + socket.id + ")";
+            durumMetni.style.color = "lightgreen";
+        });
+
+        // Bağlantı koptuğunda
+        socket.on('disconnect', () => {
+            durumMetni.innerText = "Sunucu ile bağlantı koptu.";
+            durumMetni.style.color = "red";
+        });
+
+        // Ekrana çizim yapma hazırlığı
+        const canvas = document.getElementById('oyunEkrani');
+        const ctx = canvas.getContext('2d');
+        
+        // Şimdilik test için sahanın ortasına sadece beyaz bir top çiziyoruz
+        function ciz() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.arc(400, 200, 10, 0, Math.PI * 2);
+            ctx.fillStyle = "white";
+            ctx.fill();
+            ctx.stroke();
+        }
+        ciz();
+    </script>
+</body>
+</html>
