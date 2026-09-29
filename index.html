@@ -15,8 +15,13 @@
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-
+        // 1. ÖNCE SOCKET BAĞLANTISINI KURUYORUZ
+        const oracleIP = "http://132.226.192.255:3000";
+        const socket = io(oracleIP);
+        
+        // 2. SONRA PING İŞLEMLERİNİ YAPIYORUZ
         let ping = 0;
+        
         // Saniyede bir kez sunucuya anlık saati gönder
         setInterval(() => {
             socket.emit('pingCheck', Date.now());
@@ -26,9 +31,6 @@
         socket.on('pongCheck', (gonderilenZaman) => {
             ping = Date.now() - gonderilenZaman;
         });
-        
-        const oracleIP = "http://132.226.192.255:3000";
-        const socket = io(oracleIP);
         
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
@@ -81,11 +83,12 @@
                 ctx.fillStyle = (id === socket.id) ? "#3498db" : "#e74c3c";
                 ctx.fill();
                 ctx.stroke();
-                // Ping değerini sol üst köşeye yazdır
-                ctx.fillStyle = "white";
-                ctx.font = "16px Arial";
-                ctx.fillText("Ping: " + ping + " ms", 10, 20);
             }
+
+            // Ping değerini sol üst köşeye yazdır (Döngünün dışına alındı)
+            ctx.fillStyle = "white";
+            ctx.font = "16px Arial";
+            ctx.fillText("Ping: " + ping + " ms", 10, 20);
         });
     </script>
 </body>
