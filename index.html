@@ -2,54 +2,76 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <title>Özel NeoPong</title>
+    <title>NeoPong</title>
     <style>
         body { text-align: center; background-color: #222; color: white; font-family: sans-serif; }
         canvas { background-color: #718c5a; border: 2px solid #fff; margin-top: 20px; }
     </style>
 </head>
 <body>
-    <h1>Okul NeoPong Sunucusu</h1>
+    <h1>NeoPong</h1>
     <p id="durum">Sunucuya bağlanılıyor...</p>
-    
-    <!-- Oyunun çizileceği alan (Canvas) -->
     <canvas id="oyunEkrani" width="800" height="400"></canvas>
 
-    <!-- Gerçek zamanlı bağlantı için Socket.IO kütüphanesi -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-        // BURAYA KENDİ ORACLE IP ADRESİNİ YAZ (Örnek: http://152.67.12.34:3000)
-        const oracleIP = "http://132.226.192.255:3000";
-        
+        // BURAYA KENDİ ORACLE IP ADRESİNİ YAZ
+        const oracleIP = "http://SENIN_ORACLE_IP_ADRESIN:3000";
         const socket = io(oracleIP);
+        
+        const canvas = document.getElementById('oyunEkrani');
+        const ctx = canvas.getContext('2d');
         const durumMetni = document.getElementById('durum');
 
-        // Bağlantı başarılı olduğunda
         socket.on('connect', () => {
-            durumMetni.innerText = "Sunucuya başarıyla bağlanıldı! (ID: " + socket.id + ")";
+            durumMetni.innerText = "Bağlanıldı! Hareket etmek için W-A-S-D veya Yön Tuşlarını kullanın.";
             durumMetni.style.color = "lightgreen";
         });
 
-        // Bağlantı koptuğunda
-        socket.on('disconnect', () => {
-            durumMetni.innerText = "Sunucu ile bağlantı koptu.";
-            durumMetni.style.color = "red";
+        // Oyuncunun bastığı tuşları tutan obje
+        const inputs = { up: false, down: false, left: false, right: false };
+
+        // Tuşa basıldığında
+        window.addEventListener('keydown', (e) => {
+            if (['w', 'ArrowUp'].includes(e.key)) inputs.up = true;
+            if (['s', 'ArrowDown'].includes(e.key)) inputs.down = true;
+            if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = true;
+            if (['d', 'ArrowRight'].includes(e.key)) inputs.right = true;
+            socket.emit('input', inputs);
         });
 
-        // Ekrana çizim yapma hazırlığı
-        const canvas = document.getElementById('oyunEkrani');
-        const ctx = canvas.getContext('2d');
-        
-        // Şimdilik test için sahanın ortasına sadece beyaz bir top çiziyoruz
-        function ciz() {
+        // Tuş bırakıldığında
+        window.addEventListener('keyup', (e) => {
+            if (['w', 'ArrowUp'].includes(e.key)) inputs.up = false;
+            if (['s', 'ArrowDown'].includes(e.key)) inputs.down = false;
+            if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = false;
+            if (['d', 'ArrowRight'].includes(e.key)) inputs.right = false;
+            socket.emit('input', inputs);
+        });
+
+        // Sunucudan saniyede 60 kez gelen veriyi ekrana çizme
+        socket.on('oyunDurumu', (state) => {
+            // Sahayı temizle
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Topu çiz
             ctx.beginPath();
-            ctx.arc(400, 200, 10, 0, Math.PI * 2);
+            ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
             ctx.fillStyle = "white";
             ctx.fill();
             ctx.stroke();
-        }
-        ciz();
+
+            // Tüm oyuncuları çiz
+            for (let id in state.players) {
+                let p = state.players[id];
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                // Kendi karakterimizi mavi, diğerlerini kırmızı yapalım
+                ctx.fillStyle = (id === socket.id) ? "#3498db" : "#e74c3c";
+                ctx.fill();
+                ctx.stroke();
+            }
+        });
     </script>
 </body>
 </html>
