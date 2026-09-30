@@ -54,24 +54,55 @@
             pingYazisi.innerText = (Date.now() - zaman) + " ms";
         });
 
+        // ORTAK ÇİZİM FONKSİYONU
+        function cizimiGuncelle(state) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.beginPath();
+            ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = "white"; ctx.fill(); ctx.stroke();
+
+            for (let id in state.players) {
+                let p = state.players[id];
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = (id === socket.id) ? "#3498db" : "#e74c3c";
+                ctx.fill(); ctx.stroke();
+            }
+        }
+
         const inputs = { up: false, down: false, left: false, right: false };
         let isOfficial = false;
+
+        // TUŞ DİNLEYİCİLER (Hem Resmi hem P2P için ayarlandı)
+        function veriGonder() {
+            if (isOfficial) {
+                socket.emit('input', inputs);
+            } else if (isHost && p2pState.players[socket.id]) {
+                p2pState.players[socket.id].inputs = { ...inputs };
+            } else if (isClient && hostChannel && hostChannel.readyState === 'open') {
+                hostChannel.send(JSON.stringify({ type: 'input', data: inputs }));
+            }
+        }
 
         window.addEventListener('keydown', (e) => {
             if (['w', 'ArrowUp'].includes(e.key)) inputs.up = true;
             if (['s', 'ArrowDown'].includes(e.key)) inputs.down = true;
             if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = true;
             if (['d', 'ArrowRight'].includes(e.key)) inputs.right = true;
-            if (isOfficial) socket.emit('input', inputs);
+            veriGonder();
         });
         window.addEventListener('keyup', (e) => {
             if (['w', 'ArrowUp'].includes(e.key)) inputs.up = false;
             if (['s', 'ArrowDown'].includes(e.key)) inputs.down = false;
             if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = false;
             if (['d', 'ArrowRight'].includes(e.key)) inputs.right = false;
-            if (isOfficial) socket.emit('input', inputs);
+            veriGonder();
         });
 
+        // ---------------------------------------------------------
+        // SEÇENEK A: RESMİ SUNUCU
+        // ---------------------------------------------------------
         document.getElementById('btnResmi').addEventListener('click', () => {
             isOfficial = true;
             menuDiv.style.display = "none";
@@ -80,40 +111,31 @@
             durumMetni.style.color = "lightgreen";
             
             socket.emit('join-official'); 
-
-            socket.on('oyunDurumu', (state) => {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.beginPath();
-                ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
-                ctx.fillStyle = "white"; ctx.fill(); ctx.stroke();
-
-                for (let id in state.players) {
-                    let p = state.players[id];
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = (id === socket.id) ? "#3498db" : "#e74c3c";
-                    ctx.fill(); ctx.stroke();
-                }
-            });
+            socket.on('oyunDurumu', (state) => cizimiGuncelle(state));
         });
 
         // ---------------------------------------------------------
-        // SEÇENEK B: WEBRTC ÇOKLU OYUNCU (YILDIZ TOPOLOJİSİ)
+        // SEÇENEK B: WEBRTC P2P FİZİK MOTORU
         // ---------------------------------------------------------
         let isHost = false;
         let isClient = false;
         
-        // Host (Merkez) Değişkenleri
         const peers = {}; 
         const channels = {};
         const iceKuyruklari = {};
 
-        // İstemci Değişkenleri
         let hostConnection = null;
         let hostChannel = null;
         let clientIceKuyrugu = [];
         
         const rtcConfig = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
+
+        // HOST İÇİN OYUN DEĞİŞKENLERİ
+        let p2pState = {
+            players: {},
+            ball: { x: 400, y: 200, vx: 0, vy: 0, radius: 10 }
+        };
+        let gameLoopActif = false;
 
         document.getElementById('btnP2P').addEventListener('click', () => {
             const oda = document.getElementById('odaKodu').value;
@@ -126,14 +148,82 @@
             durumMetni.style.color = "yellow";
             
             socket.emit('join-p2p', oda); 
+            
+            // İlk giren kendi karakterini oluşturup bekler
+            p2pState.players[socket.id] = { x: 100, y: 200, vx: 0, vy: 0, radius: 15, inputs: { up:false, down:false, left:false, right:false } };
+            cizimiGuncelle(p2pState);
         });
 
-        // Odaya biri katıldığında
+        // HOST FİZİK DÖNGÜSÜ
+        function startHostLoop() {
+            if (gameLoopActif) return;
+            gameLoopActif = true;
+
+            setInterval(() => {
+                // FİZİKLERİ HESAPLA
+                for (let id in p2pState.players) {
+                    let p = p2pState.players[id];
+                    
+                    if (p.inputs.up) p.vy -= 0.5;
+                    if (p.inputs.down) p.vy += 0.5;
+                    if (p.inputs.left) p.vx -= 0.5;
+                    if (p.inputs.right) p.vx += 0.5;
+
+                    p.vx *= 0.9; p.vy *= 0.9;
+                    p.x += p.vx; p.y += p.vy;
+
+                    if (p.x < p.radius) p.x = p.radius;
+                    if (p.x > 800 - p.radius) p.x = 800 - p.radius;
+                    if (p.y < p.radius) p.y = p.radius;
+                    if (p.y > 400 - p.radius) p.y = 400 - p.radius;
+
+                    let dx = p2pState.ball.x - p.x;
+                    let dy = p2pState.ball.y - p.y;
+                    let mesafe = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (mesafe < p.radius + p2pState.ball.radius) {
+                        let aci = Math.atan2(dy, dx);
+                        p2pState.ball.vx += Math.cos(aci) * 2;
+                        p2pState.ball.vy += Math.sin(aci) * 2;
+                    }
+                }
+
+                p2pState.ball.x += p2pState.ball.vx;
+                p2pState.ball.y += p2pState.ball.vy;
+                p2pState.ball.vx *= 0.98;
+                p2pState.ball.vy *= 0.98;
+
+                if (p2pState.ball.x < p2pState.ball.radius || p2pState.ball.x > 800 - p2pState.ball.radius) {
+                    p2pState.ball.vx *= -1;
+                    p2pState.ball.x = p2pState.ball.x < p2pState.ball.radius ? p2pState.ball.radius : 800 - p2pState.ball.radius;
+                }
+                if (p2pState.ball.y < p2pState.ball.radius || p2pState.ball.y > 400 - p2pState.ball.radius) {
+                    p2pState.ball.vy *= -1;
+                    p2pState.ball.y = p2pState.ball.y < p2pState.ball.radius ? p2pState.ball.radius : 400 - p2pState.ball.radius;
+                }
+
+                // EKRANI KENDİSİ İÇİN ÇİZ
+                cizimiGuncelle(p2pState);
+
+                // DURUMU İSTEMCİLERE GÖNDER
+                const statePaketi = JSON.stringify({ type: 'state', data: p2pState });
+                for (let id in channels) {
+                    if (channels[id].readyState === 'open') {
+                        channels[id].send(statePaketi);
+                    }
+                }
+            }, 1000 / 60);
+        }
+
         socket.on('user-connected', async (yeniOyuncuId) => {
-            if (isClient) return; // İstemciler yeni kişilere teklif yollamaz, sadece Host yollar.
+            if (isClient) return; 
             
             isHost = true; 
             
+            // Yeni oyuncuyu Host'un tablosuna ekle
+            p2pState.players[yeniOyuncuId] = { x: 700, y: 200, vx: 0, vy: 0, radius: 15, inputs: { up:false, down:false, left:false, right:false } };
+            startHostLoop();
+
             const pc = new RTCPeerConnection(rtcConfig);
             peers[yeniOyuncuId] = pc;
             iceKuyruklari[yeniOyuncuId] = [];
@@ -150,14 +240,13 @@
             await pc.setLocalDescription(offer);
             socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'offer', sdp: pc.localDescription } });
             
-            durumMetni.innerText = "Odada " + (Object.keys(peers).length + 1) + " kişi var. (Host Sizsiniz)";
+            durumMetni.innerText = "P2P Host Aktif. Odada " + (Object.keys(peers).length + 1) + " kişi var.";
             durumMetni.style.color = "cyan";
         });
 
         socket.on('signal', async (data) => {
             const senderId = data.from;
 
-            // BİZ HOST İSEK:
             if (isHost) {
                 const pc = peers[senderId];
                 if (!pc) return;
@@ -165,37 +254,25 @@
                 try {
                     if (data.signal.type === 'answer') {
                         await pc.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
-                        while(iceKuyruklari[senderId].length > 0) {
-                            await pc.addIceCandidate(iceKuyruklari[senderId].shift());
-                        }
+                        while(iceKuyruklari[senderId].length > 0) await pc.addIceCandidate(iceKuyruklari[senderId].shift());
                     } else if (data.signal.type === 'ice') {
-                        if (pc.remoteDescription) {
-                            await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
-                        } else {
-                            iceKuyruklari[senderId].push(new RTCIceCandidate(data.signal.candidate));
-                        }
+                        if (pc.remoteDescription) await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+                        else iceKuyruklari[senderId].push(new RTCIceCandidate(data.signal.candidate));
                     }
-                } catch (hata) {
-                    console.error("Host Sinyal Hatası:", hata);
-                }
+                } catch (hata) {}
                 return;
             }
 
-            // BİZ İSTEMCİ İSEK:
             isClient = true; 
-            
-            // BURAYI EKLEYİN: İstemci hosttan sinyal aldığı anda yazıyı güncellesin
             durumMetni.innerText = "Host bulundu, P2P tüneli kazılıyor...";
             durumMetni.style.color = "orange";
 
             if (!hostConnection) {
                 hostConnection = new RTCPeerConnection(rtcConfig);
-                
                 hostConnection.ondatachannel = event => {
                     hostChannel = event.channel;
                     veriKanaliniAyarla(hostChannel, "HOST");
                 };
-                
                 hostConnection.onicecandidate = event => {
                     if (event.candidate) socket.emit('signal', { to: senderId, signal: { type: 'ice', candidate: event.candidate } });
                 };
@@ -208,19 +285,12 @@
                     await hostConnection.setLocalDescription(answer);
                     socket.emit('signal', { to: senderId, signal: { type: 'answer', sdp: hostConnection.localDescription } });
                     
-                    while(clientIceKuyrugu.length > 0) {
-                        await hostConnection.addIceCandidate(clientIceKuyrugu.shift());
-                    }
+                    while(clientIceKuyrugu.length > 0) await hostConnection.addIceCandidate(clientIceKuyrugu.shift());
                 } else if (data.signal.type === 'ice') {
-                    if (hostConnection.remoteDescription) {
-                        await hostConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
-                    } else {
-                        clientIceKuyrugu.push(new RTCIceCandidate(data.signal.candidate));
-                    }
+                    if (hostConnection.remoteDescription) await hostConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+                    else clientIceKuyrugu.push(new RTCIceCandidate(data.signal.candidate));
                 }
-            } catch (hata) {
-                console.error("İstemci Sinyal Hatası:", hata);
-            }
+            } catch (hata) {}
         });
 
         function veriKanaliniAyarla(channel, kimlik) {
@@ -229,15 +299,24 @@
                     durumMetni.innerText = "Host'a bağlandı! P2P aktif.";
                     durumMetni.style.color = "cyan";
                 }
-                console.log(kimlik + " ile P2P tüneli açıldı.");
             };
 
             if (channel.readyState === 'open') baglantiBasariliYap();
             channel.onopen = () => baglantiBasariliYap();
             
             channel.onmessage = (event) => {
-                const veri = JSON.parse(event.data);
-                console.log(kimlik + " tünelinden veri geldi:", veri);
+                const mesaj = JSON.parse(event.data);
+                
+                // HOST: İstemciden gelen tuş kombinasyonlarını alıp tabloya işler
+                if (isHost && mesaj.type === 'input') {
+                    if (p2pState.players[kimlik]) {
+                        p2pState.players[kimlik].inputs = mesaj.data;
+                    }
+                } 
+                // İSTEMCİ: Host'tan gelen çizim tablosunu alıp ekrana yansıtır
+                else if (isClient && mesaj.type === 'state') {
+                    cizimiGuncelle(mesaj.data);
+                }
             };
         }
     </script>
