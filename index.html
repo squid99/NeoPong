@@ -72,9 +72,6 @@
             if (isOfficial) socket.emit('input', inputs);
         });
 
-        // ---------------------------------------------------------
-        // SEÇENEK A: RESMİ SUNUCU (ORACLE)
-        // ---------------------------------------------------------
         document.getElementById('btnResmi').addEventListener('click', () => {
             isOfficial = true;
             menuDiv.style.display = "none";
@@ -100,13 +97,10 @@
             });
         });
 
-        // ---------------------------------------------------------
-        // SEÇENEK B: WEBRTC (P2P SIFIR PING) ALTYAPISI
-        // ---------------------------------------------------------
         let isHost = false;
         let peerConnection;
         let dataChannel;
-        let iceKuyrugu = []; // Hataları önleyen kuyruk
+        let iceKuyrugu = []; 
         const rtcConfig = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
 
         document.getElementById('btnP2P').addEventListener('click', () => {
@@ -141,6 +135,7 @@
 
         socket.on('signal', async (data) => {
             if (!peerConnection) {
+                durumMetni.innerText = "Bağlantı daveti alındı, P2P tüneli açılıyor...";
                 peerConnection = new RTCPeerConnection(rtcConfig);
                 peerConnection.ondatachannel = event => {
                     dataChannel = event.channel;
@@ -179,9 +174,18 @@
         });
 
         function veriKanaliniAyarla(channel) {
-            channel.onopen = () => {
+            const baglantiBasariliYap = () => {
                 durumMetni.innerText = "P2P BAĞLANTISI BAŞARILI! (WebRTC aktif)";
                 durumMetni.style.color = "cyan";
+            };
+
+            // Eğer kod buraya gelmeden kanal çoktan açılmışsa doğrudan ekrana yaz
+            if (channel.readyState === 'open') {
+                baglantiBasariliYap();
+            }
+
+            channel.onopen = () => {
+                baglantiBasariliYap();
             };
 
             channel.onmessage = (event) => {
