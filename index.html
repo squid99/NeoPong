@@ -183,6 +183,10 @@
 
             // BİZ İSTEMCİ İSEK:
             isClient = true; 
+            
+            // BURAYI EKLEYİN: İstemci hosttan sinyal aldığı anda yazıyı güncellesin
+            durumMetni.innerText = "Host bulundu, P2P tüneli kazılıyor...";
+            durumMetni.style.color = "orange";
 
             if (!hostConnection) {
                 hostConnection = new RTCPeerConnection(rtcConfig);
