@@ -43,7 +43,7 @@
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-        // ORACLE SUNUCUSUNA BAĞLANTI (Hem santral hem resmi sunucu görevinde)
+       // ORACLE SUNUCUSUNA BAĞLANTI (Santral ve Resmi Sunucu)
         const oracleIP = "http://132.226.192.255:3000";
         const socket = io(oracleIP);
         
@@ -55,7 +55,7 @@
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
 
-        // Ping Ölçümü (Arka planda ana menüdeyken ölçmeye başlar)
+        // Ping Ölçümü
         setInterval(() => { socket.emit('pingCheck', Date.now()); }, 1000);
         socket.on('pongCheck', (zaman) => {
             pingYazisi.innerText = (Date.now() - zaman) + " ms";
@@ -69,40 +69,38 @@
                 if (['s', 'ArrowDown'].includes(e.key)) inputs.down = true;
                 if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = true;
                 if (['d', 'ArrowRight'].includes(e.key)) inputs.right = true;
-                socket.emit('input', inputs);
+                if (isOfficial) socket.emit('input', inputs);
             });
             window.addEventListener('keyup', (e) => {
                 if (['w', 'ArrowUp'].includes(e.key)) inputs.up = false;
                 if (['s', 'ArrowDown'].includes(e.key)) inputs.down = false;
                 if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = false;
                 if (['d', 'ArrowRight'].includes(e.key)) inputs.right = false;
-                socket.emit('input', inputs);
+                if (isOfficial) socket.emit('input', inputs);
             });
         }
+        klavyeDinle();
+
+        let isOfficial = false;
 
         // ---------------------------------------------------------
-        // SEÇENEK A: RESMİ SUNUCUYA KATILIM
+        // SEÇENEK A: RESMİ SUNUCU (ORACLE)
         // ---------------------------------------------------------
         document.getElementById('btnResmi').addEventListener('click', () => {
+            isOfficial = true;
             menuDiv.style.display = "none";
             oyunAlaniDiv.style.display = "block";
-            durumMetni.innerText = "Resmi Sunucuya Bağlanıldı! (W-A-S-D ile hareket et)";
+            durumMetni.innerText = "Resmi Sunucuya Bağlanıldı!";
             durumMetni.style.color = "lightgreen";
             
-            // Sunucuya "beni resmi odaya al" mesajı gönder
             socket.emit('join-official'); 
-            klavyeDinle();
 
-            // Saniyede 60 kez gelen çizimi ekrana yansıt
             socket.on('oyunDurumu', (state) => {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                // Topu çiz
                 ctx.beginPath();
                 ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
                 ctx.fillStyle = "white"; ctx.fill(); ctx.stroke();
 
-                // Oyuncuları çiz
                 for (let id in state.players) {
                     let p = state.players[id];
                     ctx.beginPath();
@@ -114,22 +112,96 @@
         });
 
         // ---------------------------------------------------------
-        // SEÇENEK B: P2P ÖZEL ODA KURULUMU
+        // SEÇENEK B: WEBRTC (P2P SIFIR PING) ALTYAPISI
         // ---------------------------------------------------------
+        let isHost = false;
+        let peerConnection;
+        let dataChannel; // Oyun verilerinin akacağı şifreli tünel
+
+        // Google'ın ücretsiz STUN sunucusu (Cihazların yerel IP'lerini bulmasını sağlar)
+        const rtcConfig = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
+
         document.getElementById('btnP2P').addEventListener('click', () => {
             const oda = document.getElementById('odaKodu').value;
             if(!oda) return alert("Lütfen bir oda adı girin!");
             
+            isOfficial = false;
             menuDiv.style.display = "none";
             oyunAlaniDiv.style.display = "block";
-            durumMetni.innerText = "P2P WebRTC Bağlantısı Bekleniyor... (" + oda + " odası)";
+            durumMetni.innerText = "Oda bekleniyor... Diğer oyuncunun girmesi bekleniyor.";
             durumMetni.style.color = "yellow";
             
-            // Oracle'a sadece tanıştırma(santral) yapması için oda adını yolla
             socket.emit('join-p2p', oda); 
-            
-            // NOT: Tarayıcılar arası doğrudan bağlantı (WebRTC) kodları buraya gelecek.
         });
+
+        // 1. Odaya yeni biri girdiğinde (Sadece içeride bekleyen Kurucuya/Host'a gider)
+        socket.on('user-connected', async (yeniOyuncuId) => {
+            isHost = true; // İçeride olan kişi otomatik Host olur
+            durumMetni.innerText = "Oyuncu bağlandı! P2P tüneli kuruluyor...";
+            
+            peerConnection = new RTCPeerConnection(rtcConfig);
+            
+            // Host, veri kanalını oluşturur
+            dataChannel = peerConnection.createDataChannel("oyunTuneli");
+            veriKanaliniAyarla(dataChannel);
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'ice', candidate: event.candidate } });
+            };
+
+            // Host teklif (Offer) hazırlar
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'offer', sdp: peerConnection.localDescription } });
+        });
+
+        // 2. Oracle'dan şifreli P2P sinyali geldiğinde (Her iki taraf da bunu dinler)
+        socket.on('signal', async (data) => {
+            if (!peerConnection) {
+                // Eğer bağlantısı yoksa, bu kişi sonradan gelen İstemcidir (Client)
+                peerConnection = new RTCPeerConnection(rtcConfig);
+                
+                peerConnection.ondatachannel = event => {
+                    dataChannel = event.channel;
+                    veriKanaliniAyarla(dataChannel);
+                };
+
+                peerConnection.onicecandidate = event => {
+                    if (event.candidate) socket.emit('signal', { to: data.from, signal: { type: 'ice', candidate: event.candidate } });
+                };
+            }
+
+            if (data.signal.type === 'offer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                socket.emit('signal', { to: data.from, signal: { type: 'answer', sdp: peerConnection.localDescription } });
+            } else if (data.signal.type === 'answer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
+            } else if (data.signal.type === 'ice') {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+            }
+        });
+
+        // 3. WebRTC Tüneli Başarıyla Açıldığında Çalışır
+        function veriKanaliniAyarla(channel) {
+            channel.onopen = () => {
+                durumMetni.innerText = "P2P BAĞLANTISI BAŞARILI! (WebRTC aktif)";
+                durumMetni.style.color = "cyan";
+                
+                if(isHost) {
+                    console.log("Ben HOST'um. Fizikleri ben hesaplayacağım.");
+                } else {
+                    console.log("Ben CLIENT'ım. Sadece tuşlarımı göndereceğim.");
+                }
+            };
+
+            channel.onmessage = (event) => {
+                // Şifreli tünelden veri (koordinat veya tuş) geldiğinde burası çalışacak
+                const veri = JSON.parse(event.data);
+                console.log("Tünelden veri geldi:", veri);
+            };
+        }
     </script>
 </body>
 </html>
