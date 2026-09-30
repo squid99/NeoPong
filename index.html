@@ -97,10 +97,22 @@
             });
         });
 
+        // ---------------------------------------------------------
+        // SEÇENEK B: WEBRTC ÇOKLU OYUNCU (YILDIZ TOPOLOJİSİ)
+        // ---------------------------------------------------------
         let isHost = false;
-        let peerConnection;
-        let dataChannel;
-        let iceKuyrugu = []; 
+        let isClient = false;
+        
+        // Host (Merkez) Değişkenleri
+        const peers = {}; 
+        const channels = {};
+        const iceKuyruklari = {};
+
+        // İstemci Değişkenleri
+        let hostConnection = null;
+        let hostChannel = null;
+        let clientIceKuyrugu = [];
+        
         const rtcConfig = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
 
         document.getElementById('btnP2P').addEventListener('click', () => {
@@ -110,87 +122,118 @@
             isOfficial = false;
             menuDiv.style.display = "none";
             oyunAlaniDiv.style.display = "block";
-            durumMetni.innerText = "Oda bekleniyor... Diğer oyuncunun girmesi bekleniyor.";
+            durumMetni.innerText = "Oda bekleniyor... Diğer oyuncuların girmesi bekleniyor.";
             durumMetni.style.color = "yellow";
             
             socket.emit('join-p2p', oda); 
         });
 
+        // Odaya biri katıldığında
         socket.on('user-connected', async (yeniOyuncuId) => {
-            isHost = true; 
-            durumMetni.innerText = "Oyuncu bağlandı! P2P tüneli kuruluyor...";
+            if (isClient) return; // İstemciler yeni kişilere teklif yollamaz, sadece Host yollar.
             
-            peerConnection = new RTCPeerConnection(rtcConfig);
-            dataChannel = peerConnection.createDataChannel("oyunTuneli");
-            veriKanaliniAyarla(dataChannel);
+            isHost = true; 
+            
+            const pc = new RTCPeerConnection(rtcConfig);
+            peers[yeniOyuncuId] = pc;
+            iceKuyruklari[yeniOyuncuId] = [];
 
-            peerConnection.onicecandidate = event => {
+            const dc = pc.createDataChannel("oyunTuneli");
+            channels[yeniOyuncuId] = dc;
+            veriKanaliniAyarla(dc, yeniOyuncuId);
+
+            pc.onicecandidate = event => {
                 if (event.candidate) socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'ice', candidate: event.candidate } });
             };
 
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'offer', sdp: peerConnection.localDescription } });
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'offer', sdp: pc.localDescription } });
+            
+            durumMetni.innerText = "Odada " + (Object.keys(peers).length + 1) + " kişi var. (Host Sizsiniz)";
+            durumMetni.style.color = "cyan";
         });
 
         socket.on('signal', async (data) => {
-            if (!peerConnection) {
-                durumMetni.innerText = "Bağlantı daveti alındı, P2P tüneli açılıyor...";
-                peerConnection = new RTCPeerConnection(rtcConfig);
-                peerConnection.ondatachannel = event => {
-                    dataChannel = event.channel;
-                    veriKanaliniAyarla(dataChannel);
+            const senderId = data.from;
+
+            // BİZ HOST İSEK:
+            if (isHost) {
+                const pc = peers[senderId];
+                if (!pc) return;
+
+                try {
+                    if (data.signal.type === 'answer') {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
+                        while(iceKuyruklari[senderId].length > 0) {
+                            await pc.addIceCandidate(iceKuyruklari[senderId].shift());
+                        }
+                    } else if (data.signal.type === 'ice') {
+                        if (pc.remoteDescription) {
+                            await pc.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+                        } else {
+                            iceKuyruklari[senderId].push(new RTCIceCandidate(data.signal.candidate));
+                        }
+                    }
+                } catch (hata) {
+                    console.error("Host Sinyal Hatası:", hata);
+                }
+                return;
+            }
+
+            // BİZ İSTEMCİ İSEK:
+            isClient = true; 
+
+            if (!hostConnection) {
+                hostConnection = new RTCPeerConnection(rtcConfig);
+                
+                hostConnection.ondatachannel = event => {
+                    hostChannel = event.channel;
+                    veriKanaliniAyarla(hostChannel, "HOST");
                 };
-                peerConnection.onicecandidate = event => {
-                    if (event.candidate) socket.emit('signal', { to: data.from, signal: { type: 'ice', candidate: event.candidate } });
+                
+                hostConnection.onicecandidate = event => {
+                    if (event.candidate) socket.emit('signal', { to: senderId, signal: { type: 'ice', candidate: event.candidate } });
                 };
             }
 
             try {
                 if (data.signal.type === 'offer') {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
-                    const answer = await peerConnection.createAnswer();
-                    await peerConnection.setLocalDescription(answer);
-                    socket.emit('signal', { to: data.from, signal: { type: 'answer', sdp: peerConnection.localDescription } });
+                    await hostConnection.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
+                    const answer = await hostConnection.createAnswer();
+                    await hostConnection.setLocalDescription(answer);
+                    socket.emit('signal', { to: senderId, signal: { type: 'answer', sdp: hostConnection.localDescription } });
                     
-                    while(iceKuyrugu.length > 0) {
-                        await peerConnection.addIceCandidate(iceKuyrugu.shift());
-                    }
-                } else if (data.signal.type === 'answer') {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.signal.sdp));
-                    while(iceKuyrugu.length > 0) {
-                        await peerConnection.addIceCandidate(iceKuyrugu.shift());
+                    while(clientIceKuyrugu.length > 0) {
+                        await hostConnection.addIceCandidate(clientIceKuyrugu.shift());
                     }
                 } else if (data.signal.type === 'ice') {
-                    if (peerConnection.remoteDescription) {
-                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+                    if (hostConnection.remoteDescription) {
+                        await hostConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
                     } else {
-                        iceKuyrugu.push(new RTCIceCandidate(data.signal.candidate));
+                        clientIceKuyrugu.push(new RTCIceCandidate(data.signal.candidate));
                     }
                 }
             } catch (hata) {
-                console.error("WebRTC Sinyal Hatası:", hata);
+                console.error("İstemci Sinyal Hatası:", hata);
             }
         });
 
-        function veriKanaliniAyarla(channel) {
+        function veriKanaliniAyarla(channel, kimlik) {
             const baglantiBasariliYap = () => {
-                durumMetni.innerText = "P2P BAĞLANTISI BAŞARILI! (WebRTC aktif)";
-                durumMetni.style.color = "cyan";
+                if(isClient) {
+                    durumMetni.innerText = "Host'a bağlandı! P2P aktif.";
+                    durumMetni.style.color = "cyan";
+                }
+                console.log(kimlik + " ile P2P tüneli açıldı.");
             };
 
-            // Eğer kod buraya gelmeden kanal çoktan açılmışsa doğrudan ekrana yaz
-            if (channel.readyState === 'open') {
-                baglantiBasariliYap();
-            }
-
-            channel.onopen = () => {
-                baglantiBasariliYap();
-            };
-
+            if (channel.readyState === 'open') baglantiBasariliYap();
+            channel.onopen = () => baglantiBasariliYap();
+            
             channel.onmessage = (event) => {
                 const veri = JSON.parse(event.data);
-                console.log("Tünelden veri geldi:", veri);
+                console.log(kimlik + " tünelinden veri geldi:", veri);
             };
         }
     </script>
