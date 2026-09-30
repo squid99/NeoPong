@@ -4,58 +4,64 @@
     <meta charset="UTF-8">
     <title>NeoPong - WebRTC Final</title>
     <style>
-        body { text-align: center; background-color: #222; color: white; font-family: sans-serif; margin: 0; padding: 20px; }
+        /* KANVAS TÜM EKRANI KAPLAYACAK VE KAYDIRMA ÇUBUKLARI GİZLENECEK */
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #222; font-family: sans-serif; color: white; }
         
-        /* KANVAS EKRANDA SABİT BOYUTTA DURACAK, KAMERA İÇİNDE HAREKET EDECEK */
-        #oyunEkrani { display: block; margin: 0 auto; border: 4px solid #fff; border-radius: 10px; cursor: crosshair; background-color: #3a522f; }
+        #oyunEkrani { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: crosshair; }
         
-        #menu { margin-top: 100px; }
+        #uiKatmani { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #uiKatmani > * { pointer-events: auto; }
+        
+        #menu { background: rgba(30, 30, 30, 0.9); padding: 40px; border-radius: 10px; text-align: center; border: 2px solid #555; }
         button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
         #btnResmi { background-color: #3498db; color: white; }
         #btnP2P { background-color: #2ecc71; color: white; }
         input, select { padding: 10px; font-size: 16px; margin: 10px; border-radius: 5px; border: none; text-align: center; }
         
-        #kontrolPaneli { max-width: 1000px; margin: 15px auto; padding: 10px; background-color: #333; border-radius: 8px; }
+        /* ARAYÜZ ALTA SABİTLENDİ */
+        #kontrolPaneli { display: none; position: absolute; bottom: 20px; max-width: 1000px; padding: 15px; background-color: rgba(30, 30, 30, 0.85); border-radius: 8px; border: 1px solid #555; text-align: center; }
         #btnKirmizi { background-color: #e74c3c; color: white; }
         #btnIzleyici { background-color: #7f8c8d; color: white; }
         #btnMavi { background-color: #3498db; color: white; }
-        #ayarlar { background: #444; padding: 10px; border-radius: 5px; margin-top: 10px; }
+        #btnMacBitir { background-color: #8e44ad; color: white; margin-left: 15px; display: none; }
+        #ayarlar { background: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 5px; margin-top: 10px; }
     </style>
 </head>
 <body>
-    <div id="menu">
-        <h1 style="font-size: 3em;">NeoPong</h1>
-        <p style="color: #aaa;">Sunucu Gecikmesi (Ping): <span id="pingYazisi" style="color: white; font-weight: bold;">Ölçülüyor...</span></p>
-        <hr style="width: 400px; border-color: #444; margin: 30px auto;">
-        
-        <h3>Seçenek A: Merkezi Sunucu</h3>
-        <button id="btnResmi">Resmi Sunucuya Katıl</button>
-        <br><br><br>
-        
-        <h3>Seçenek B: Sıfır Ping (Özel P2P Oda)</h3>
-        <input type="text" id="nickKodu" placeholder="Kullanıcı Adı (Nick)">
-        <input type="text" id="odaKodu" placeholder="Oda Adı Girin (Örn: 9A)">
-        <br>
-        <button id="btnP2P">Özel Odaya Kur / Katıl</button>
-    </div>
 
-    <div id="oyunAlani" style="display: none;">
-        <div style="display: flex; justify-content: center; align-items: center; gap: 20px;">
-            <p id="durum">Oyuna giriliyor...</p>
+    <canvas id="oyunEkrani"></canvas>
+    
+    <div id="uiKatmani">
+        <div id="menu">
+            <h1 style="font-size: 3em; margin-top: 0;">NeoPong</h1>
+            <p style="color: #aaa;">Sunucu Gecikmesi (Ping): <span id="pingYazisi" style="color: white; font-weight: bold;">Ölçülüyor...</span></p>
+            <hr style="width: 400px; border-color: #444; margin: 20px auto;">
+            
+            <h3>Seçenek A: Merkezi Sunucu</h3>
+            <button id="btnResmi">Resmi Sunucuya Katıl</button>
+            <br><br><br>
+            
+            <h3>Seçenek B: Sıfır Ping (Özel P2P Oda)</h3>
+            <input type="text" id="nickKodu" placeholder="Kullanıcı Adı (Nick)">
+            <input type="text" id="odaKodu" placeholder="Oda Adı Girin (Örn: 9A)">
+            <br>
+            <button id="btnP2P">Özel Odaya Kur / Katıl</button>
         </div>
-        
-        <!-- PENCERE (VIEWPORT) BOYUTU -->
-        <canvas id="oyunEkrani" width="1000" height="600"></canvas>
-        
+
         <div id="kontrolPaneli">
+            <p id="durum" style="color: yellow; margin: 0 0 10px 0; font-weight: bold;">Oyuna giriliyor...</p>
+            
             <div id="takimSecim">
                 <button id="btnKirmizi">Kırmızı Takıma Katıl</button>
                 <button id="btnIzleyici">İzleyici (Spectator)</button>
                 <button id="btnMavi">Mavi Takıma Katıl</button>
             </div>
+            
             <div id="ayarlar">
                 <span id="ayarIcerik">Arayüz Yükleniyor...</span>
             </div>
+            
+            <button id="btnMacBitir">Maçı Bitir</button>
         </div>
     </div>
 
@@ -66,46 +72,62 @@
         const socket = io(oracleIP);
         
         const menuDiv = document.getElementById('menu');
-        const oyunAlaniDiv = document.getElementById('oyunAlani');
+        const kontrolPaneli = document.getElementById('kontrolPaneli');
         const pingYazisi = document.getElementById('pingYazisi');
         const durumMetni = document.getElementById('durum');
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
 
+        // PENCERE YENİDEN BOYUTLANDIRMA
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
         setInterval(() => { socket.emit('pingCheck', Date.now()); }, 1000);
         socket.on('pongCheck', (zaman) => { pingYazisi.innerText = (Date.now() - zaman) + " ms"; });
 
         let myNickname = "Oyuncu";
+        window.currentZoom = 1;
 
         function cizimiGuncelle(state) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Boşlukları (Saha Dışını) Boya
+            ctx.fillStyle = "#2c3e23"; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // KAMERA HESAPLAMASI
+            // DİNAMİK KAMERA HESAPLAMASI (ZOOM & TAKİP)
             let myP = state.players[socket.id];
-            let camX = 0, camY = 0;
+            let focusX = state.ball.x;
+            let focusY = state.ball.y;
+            let targetZoom = 1;
             
             if (myP && myP.team !== 'spectator') {
-                camX = myP.x - canvas.width / 2;
-                camY = myP.y - canvas.height / 2;
-            } else {
-                camX = state.ball.x - canvas.width / 2;
-                camY = state.ball.y - canvas.height / 2;
+                let dist = Math.hypot(state.ball.x - myP.x, state.ball.y - myP.y);
+                focusX = myP.x * 0.6 + state.ball.x * 0.4; // Oyuncu ağırlıklı ortak merkez
+                focusY = myP.y * 0.6 + state.ball.y * 0.4;
+                
+                // Top uzaklaştıkça kamerayı geriye çek
+                let idealZoom = (Math.min(canvas.width, canvas.height) * 0.55) / Math.max(dist, 200);
+                targetZoom = Math.max(0.4, Math.min(1.4, idealZoom));
             }
 
-            ctx.save();
-            ctx.translate(-camX, -camY);
+            window.currentZoom += (targetZoom - window.currentZoom) * 0.05; // Yumuşak zoom geçişi
 
-            // 1. Zemin (Çizgili Çim Efekti)
+            ctx.save();
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.scale(window.currentZoom, window.currentZoom);
+            ctx.translate(-focusX, -focusY);
+
+            // 1. Zemin (Çim Saha)
             ctx.fillStyle = "#4a6b3d"; 
             ctx.fillRect(0, 0, state.sahaW, state.sahaH);
             ctx.fillStyle = "#557a46";
-            for (let i = 0; i < state.sahaW; i += 80) {
-                ctx.fillRect(i, 0, 40, state.sahaH);
-            }
+            for (let i = 0; i < state.sahaW; i += 80) ctx.fillRect(i, 0, 40, state.sahaH);
 
             // 2. Saha Sınır Çizgileri
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-            ctx.lineWidth = 4;
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.8)"; ctx.lineWidth = 4;
             ctx.strokeRect(0, 0, state.sahaW, state.sahaH);
 
             // 3. Orta Saha
@@ -141,52 +163,48 @@
                 ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
                 ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
                 
-                if (p.inputs.shoot) {
-                    ctx.strokeStyle = "white"; ctx.lineWidth = 5;
-                } else if (id === socket.id) {
-                    ctx.strokeStyle = "yellow"; ctx.lineWidth = 4;
-                } else {
-                    ctx.strokeStyle = "black"; ctx.lineWidth = 2;
-                }
+                if (p.inputs.shoot) { ctx.strokeStyle = "white"; ctx.lineWidth = 5; }
+                else if (id === socket.id) { ctx.strokeStyle = "yellow"; ctx.lineWidth = 4; }
+                else { ctx.strokeStyle = "black"; ctx.lineWidth = 2; }
                 ctx.fill(); ctx.stroke();
 
-                // NICKNAME ÇİZİMİ
-                ctx.fillStyle = "white";
-                ctx.font = "bold 14px Arial";
-                ctx.textAlign = "center";
-                // Etrafına siyah kontur (okunabilir olması için)
-                ctx.strokeStyle = "black";
-                ctx.lineWidth = 2;
+                // Nickname
+                ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+                ctx.strokeStyle = "black"; ctx.lineWidth = 2;
                 ctx.strokeText(p.nick, p.x, p.y + p.radius + 18);
                 ctx.fillText(p.nick, p.x, p.y + p.radius + 18);
             }
 
-            ctx.restore(); // KAMERA ÇİZİMİ BİTTİ, SABİT UI'A GEÇ
+            ctx.restore(); // KAMERA ÇİZİMİ BİTTİ (SABİT EKRANA GEÇİŞ)
 
-            // SABİT ARAYÜZ ÇİZİMLERİ (SKOR, SÜRE, MESAJ)
-            ctx.fillStyle = "white";
-            ctx.font = "bold 35px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText(`${state.score.red} - ${state.score.blue}`, canvas.width/2, 40);
+            // SABİT ARAYÜZ (SKOR, SÜRE, MESAJ) EKRANIN ÜSTÜNDE ÇİZİLİR
+            ctx.fillStyle = "white"; ctx.font = "bold 45px Arial"; ctx.textAlign = "center";
+            ctx.strokeStyle = "black"; ctx.lineWidth = 4;
+            let skorMetni = `${state.score.red} - ${state.score.blue}`;
+            ctx.strokeText(skorMetni, canvas.width/2, 60);
+            ctx.fillText(skorMetni, canvas.width/2, 60);
             
             if (state.isPlaying || state.kalanSure > 0) {
                 let dk = Math.floor(state.kalanSure / 60);
                 let sn = state.kalanSure % 60;
-                ctx.font = "bold 20px Arial";
-                ctx.fillText(`Süre: ${dk}:${sn < 10 ? '0'+sn : sn}`, canvas.width - 80, 35);
+                let sureMetni = `Süre: ${dk}:${sn < 10 ? '0'+sn : sn}`;
+                ctx.font = "bold 24px Arial";
+                ctx.strokeText(sureMetni, canvas.width/2, 100);
+                ctx.fillText(sureMetni, canvas.width/2, 100);
             }
 
             if (state.mesaj) {
-                ctx.fillStyle = "white"; 
-                ctx.strokeStyle = "black";
-                ctx.lineWidth = 3;
-                ctx.font = "bold 45px Arial";
+                ctx.fillStyle = "white"; ctx.strokeStyle = "black"; ctx.lineWidth = 5; ctx.font = "bold 55px Arial";
                 ctx.strokeText(state.mesaj, canvas.width/2, canvas.height/2);
                 ctx.fillText(state.mesaj, canvas.width/2, canvas.height/2);
             }
 
+            // Arayüz Görünürlük Kontrolleri
             document.getElementById('takimSecim').style.display = state.isPlaying ? "none" : "block";
             document.getElementById('ayarlar').style.display = state.isPlaying ? "none" : "block";
+            if(isHost) {
+                document.getElementById('btnMacBitir').style.display = state.isPlaying ? "inline-block" : "none";
+            }
         }
 
         const inputs = { up: false, down: false, left: false, right: false, shoot: false };
@@ -219,8 +237,7 @@
 
         function takimDegistir(yeniTakim) {
             if (isHost && !p2pState.isPlaying) {
-                p2pState.players[socket.id].team = yeniTakim;
-                pozisyonSifirla(socket.id); 
+                p2pState.players[socket.id].team = yeniTakim; pozisyonSifirla(socket.id); 
             } else if (isClient && hostChannel && hostChannel.readyState === 'open') {
                 hostChannel.send(JSON.stringify({ type: 'team-change', team: yeniTakim }));
             }
@@ -230,12 +247,16 @@
         document.getElementById('btnMavi').addEventListener('click', () => takimDegistir('blue'));
 
         document.getElementById('btnResmi').addEventListener('click', () => {
-            isOfficial = true; menuDiv.style.display = "none"; oyunAlaniDiv.style.display = "block";
+            isOfficial = true; menuDiv.style.display = "none"; canvas.style.display = "block"; kontrolPaneli.style.display = "block";
             socket.emit('join-official'); 
             socket.on('oyunDurumu', (state) => cizimiGuncelle(state));
         });
 
-        // WEBRTC P2P FİZİK MOTORU (HOST)
+        document.getElementById('btnMacBitir').addEventListener('click', () => {
+            if (isHost && p2pState.isPlaying) bitirOyun("HOST MAÇI SONLANDIRDI!");
+        });
+
+        // WEBRTC P2P FİZİK MOTORU
         let isHost = false, isClient = false;
         const peers = {}, channels = {}, iceKuyruklari = {};
         let hostConnection = null, hostChannel = null, clientIceKuyrugu = [];
@@ -249,19 +270,13 @@
         };
 
         let p2pState = {
-            players: {},
-            ball: { x: 450, y: 250, vx: 0, vy: 0, radius: 10 },
-            score: { red: 0, blue: 0 },
-            mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN",
-            isPlaying: false,
-            skorSiniri: 3,
-            kalanSure: 180,
+            players: {}, ball: { x: 450, y: 250, vx: 0, vy: 0, radius: 10 },
+            score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN",
+            isPlaying: false, skorSiniri: 3, kalanSure: 180,
             sahaW: 900, sahaH: 500, kaleBoyutu: 150
         };
         
-        let gameLoopActif = false;
-        let oyunBeklemede = false; 
-        let frameCount = 0;
+        let gameLoopActif = false, oyunBeklemede = false, frameCount = 0;
 
         document.getElementById('btnP2P').addEventListener('click', () => {
             myNickname = document.getElementById('nickKodu').value || "Oyuncu";
@@ -270,13 +285,14 @@
             
             isOfficial = false;
             menuDiv.style.display = "none";
-            oyunAlaniDiv.style.display = "block";
+            canvas.style.display = "block";
+            kontrolPaneli.style.display = "block";
             
             socket.emit('join-p2p', oda); 
             p2pState.players[socket.id] = { x: -100, y: -100, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: myNickname, inputs: { up:false, down:false, left:false, right:false, shoot:false } };
             cizimiGuncelle(p2pState);
             
-            durumMetni.innerText = "Host Bekleniyor...";
+            durumMetni.innerText = "Bağlantı Bekleniyor...";
             document.getElementById('ayarIcerik').innerHTML = `Kurucunun (Host) maçı başlatması bekleniyor...`;
         });
 
@@ -298,12 +314,8 @@
                 if (!p2pState.isPlaying) {
                     p2pState.skorSiniri = parseInt(document.getElementById('skorSiniri').value);
                     p2pState.kalanSure = parseInt(document.getElementById('sureSiniri').value) * 60;
-                    
                     let secilenSaha = document.getElementById('sahaBoyutu').value;
-                    p2pState.sahaW = SAHALAR[secilenSaha].w;
-                    p2pState.sahaH = SAHALAR[secilenSaha].h;
-                    p2pState.kaleBoyutu = SAHALAR[secilenSaha].goal;
-
+                    p2pState.sahaW = SAHALAR[secilenSaha].w; p2pState.sahaH = SAHALAR[secilenSaha].h; p2pState.kaleBoyutu = SAHALAR[secilenSaha].goal;
                     p2pState.score.red = 0; p2pState.score.blue = 0;
                     p2pState.isPlaying = true; p2pState.mesaj = "";
                     santraYap();
@@ -311,31 +323,18 @@
             });
         }
 
-        // İÇ İÇE DOĞMAYI ENGELLEYEN VE YAN YANA DİZEN YENİ MANTIK
         function pozisyonSifirla(id) {
-            let p = p2pState.players[id];
-            p.vx = 0; p.vy = 0;
+            let p = p2pState.players[id]; p.vx = 0; p.vy = 0;
             if (p.team === 'red' || p.team === 'blue') {
-                // Takımdaki kaçıncı kişi olduğunu bul
                 let index = 0;
                 for (let k in p2pState.players) {
                     if (k === id) break;
                     if (p2pState.players[k].team === p.team) index++;
                 }
-                
-                // Merkezden sapma miktarı (her oyuncu 50px y ekseninde kayar)
                 let yOffset = (index * 50) - 50; 
-
-                if (p.team === 'red') {
-                    p.x = p2pState.sahaW / 4;
-                    p.y = (p2pState.sahaH / 2) + yOffset;
-                } else if (p.team === 'blue') {
-                    p.x = (p2pState.sahaW / 4) * 3;
-                    p.y = (p2pState.sahaH / 2) + yOffset;
-                }
-            } else { 
-                p.x = -1000; p.y = -1000; 
-            } 
+                if (p.team === 'red') { p.x = p2pState.sahaW / 4; p.y = (p2pState.sahaH / 2) + yOffset; } 
+                else if (p.team === 'blue') { p.x = (p2pState.sahaW / 4) * 3; p.y = (p2pState.sahaH / 2) + yOffset; }
+            } else { p.x = -1000; p.y = -1000; } 
         }
 
         function santraYap() {
@@ -343,36 +342,29 @@
             for (let id in p2pState.players) pozisyonSifirla(id);
         }
 
-        function bitirOyun() {
-            p2pState.isPlaying = false;
-            oyunBeklemede = true;
+        function bitirOyun(ozelNeden = null) {
+            p2pState.isPlaying = false; oyunBeklemede = true;
             let msg = "BERABERLİK!";
             if (p2pState.score.red > p2pState.score.blue) msg = "KIRMIZI TAKIM KAZANDI!";
             else if (p2pState.score.blue > p2pState.score.red) msg = "MAVİ TAKIM KAZANDI!";
+            if (ozelNeden) msg = ozelNeden;
             
             p2pState.mesaj = "MAÇ BİTTİ! " + msg;
             setTimeout(() => {
                 p2pState.score.red = 0; p2pState.score.blue = 0;
                 p2pState.mesaj = "TAKIM SEÇİN VE MAÇI BAŞLATIN";
-                santraYap();
-                oyunBeklemede = false;
-            }, 5000);
+                santraYap(); oyunBeklemede = false;
+            }, 4000);
         }
 
         function startHostLoop() {
-            if (gameLoopActif) return;
-            gameLoopActif = true;
-            arayuzuHostOlarakKur();
-
+            if (gameLoopActif) return; gameLoopActif = true; arayuzuHostOlarakKur();
             setInterval(() => {
                 if (p2pState.isPlaying && !oyunBeklemede) {
                     frameCount++;
-                    if (frameCount >= 60) {
-                        frameCount = 0; p2pState.kalanSure--;
-                        if (p2pState.kalanSure <= 0) bitirOyun();
-                    }
+                    if (frameCount >= 60) { frameCount = 0; p2pState.kalanSure--; if (p2pState.kalanSure <= 0) bitirOyun(); }
 
-                    // 1. OYUNCU HAREKETLERİ
+                    // OYUNCU HAREKETLERİ VE MIKNATIS ETKİSİ
                     for (let id in p2pState.players) {
                         let p = p2pState.players[id];
                         if (p.team === 'spectator') continue; 
@@ -381,65 +373,52 @@
                         if (p.inputs.left) p.vx -= 0.3; if (p.inputs.right) p.vx += 0.3;
                         p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx; p.y += p.vy;
 
-                        // Oyuncular dışarı çıkabilir ama evren sınırları (pad) koyalım ki sonsuza gitmesinler
                         let pad = 200;
                         if (p.x < -pad) p.x = -pad; if (p.x > p2pState.sahaW + pad) p.x = p2pState.sahaW + pad;
                         if (p.y < -pad) p.y = -pad; if (p.y > p2pState.sahaH + pad) p.y = p2pState.sahaH + pad;
+
+                        let dx = p2pState.ball.x - p.x; let dy = p2pState.ball.y - p.y;
+                        let mesafe = Math.sqrt(dx * dx + dy * dy);
+                        let temasMesafesi = p.radius + p2pState.ball.radius;
+                        let magnetMenzil = temasMesafesi + 60; // Mıknatıs Alanı
+                        
+                        // KATI ÇARPIŞMA (Temas Ediyorsa İter)
+                        if (mesafe < temasMesafesi) {
+                            let overlap = temasMesafesi - mesafe; let aci = Math.atan2(dy, dx);
+                            p2pState.ball.x += Math.cos(aci) * overlap; p2pState.ball.y += Math.sin(aci) * overlap;
+                            p2pState.ball.vx += Math.cos(aci) * 0.3; p2pState.ball.vy += Math.sin(aci) * 0.3;
+                        } 
+                        // MIKNATIS/YER ÇEKİMİ KONTROLÜ (Top yakındaysa oyuncuya doğru yavaşça çekilir)
+                        else if (mesafe < magnetMenzil) {
+                            let aci = Math.atan2(dy, dx);
+                            let cekimGucu = (magnetMenzil - mesafe) * 0.003; 
+                            p2pState.ball.vx -= Math.cos(aci) * cekimGucu;
+                            p2pState.ball.vy -= Math.sin(aci) * cekimGucu;
+                        }
+                        
+                        // ŞUT GÜCÜ
+                        if (p.inputs.shoot && mesafe < temasMesafesi + 4) {
+                            let aci = Math.atan2(dy, dx);
+                            p2pState.ball.vx += Math.cos(aci) * 5.5; p2pState.ball.vy += Math.sin(aci) * 5.5;
+                        }
                     }
 
-                    // 2. OYUNCU - OYUNCU ÇARPIŞMASI (İÇ İÇE GEÇMEYİ ENGELLER)
+                    // OYUNCULAR ARASI ÇARPIŞMA
                     let pIds = Object.keys(p2pState.players).filter(id => p2pState.players[id].team !== 'spectator');
                     for (let i = 0; i < pIds.length; i++) {
                         for (let j = i + 1; j < pIds.length; j++) {
-                            let p1 = p2pState.players[pIds[i]];
-                            let p2 = p2pState.players[pIds[j]];
-                            let dx = p2.x - p1.x; let dy = p2.y - p1.y;
-                            let mesafe = Math.sqrt(dx*dx + dy*dy);
-                            let temas = p1.radius + p2.radius;
-                            
+                            let p1 = p2pState.players[pIds[i]]; let p2 = p2pState.players[pIds[j]];
+                            let dx = p2.x - p1.x; let dy = p2.y - p1.y; let mesafe = Math.sqrt(dx*dx + dy*dy); let temas = p1.radius + p2.radius;
                             if (mesafe < temas && mesafe > 0) {
-                                let overlap = temas - mesafe;
-                                let nx = dx / mesafe; let ny = dy / mesafe;
-                                p1.x -= nx * (overlap / 2); p1.y -= ny * (overlap / 2);
-                                p2.x += nx * (overlap / 2); p2.y += ny * (overlap / 2);
+                                let overlap = temas - mesafe; let nx = dx / mesafe; let ny = dy / mesafe;
+                                p1.x -= nx * (overlap / 2); p1.y -= ny * (overlap / 2); p2.x += nx * (overlap / 2); p2.y += ny * (overlap / 2);
                             }
                         }
                     }
 
-                    // 3. OYUNCU - TOP ÇARPIŞMASI
-                    for (let id in p2pState.players) {
-                        let p = p2pState.players[id];
-                        if (p.team === 'spectator') continue;
+                    p2pState.ball.x += p2pState.ball.vx; p2pState.ball.y += p2pState.ball.vy;
+                    p2pState.ball.vx *= 0.97; p2pState.ball.vy *= 0.97;
 
-                        let dx = p2pState.ball.x - p.x;
-                        let dy = p2pState.ball.y - p.y;
-                        let mesafe = Math.sqrt(dx * dx + dy * dy);
-                        let temasMesafesi = p.radius + p2pState.ball.radius;
-                        
-                        if (mesafe < temasMesafesi) {
-                            let overlap = temasMesafesi - mesafe;
-                            let aci = Math.atan2(dy, dx);
-                            
-                            // Topu iter (İçinden geçemez)
-                            p2pState.ball.x += Math.cos(aci) * overlap;
-                            p2pState.ball.y += Math.sin(aci) * overlap;
-                            p2pState.ball.vx += Math.cos(aci) * 0.3; 
-                            p2pState.ball.vy += Math.sin(aci) * 0.3;
-                        }
-                        
-                        if (p.inputs.shoot && mesafe < temasMesafesi + 4) {
-                            let aci = Math.atan2(dy, dx);
-                            p2pState.ball.vx += Math.cos(aci) * 5; 
-                            p2pState.ball.vy += Math.sin(aci) * 5;
-                        }
-                    }
-
-                    p2pState.ball.x += p2pState.ball.vx;
-                    p2pState.ball.y += p2pState.ball.vy;
-                    p2pState.ball.vx *= 0.97; 
-                    p2pState.ball.vy *= 0.97;
-
-                    // 4. TOP SINIRLARI VE GOL KONTROLÜ
                     let kaleUst = (p2pState.sahaH / 2) - (p2pState.kaleBoyutu / 2);
                     let kaleAlt = (p2pState.sahaH / 2) + (p2pState.kaleBoyutu / 2);
                     
@@ -448,12 +427,10 @@
 
                     if (p2pState.ball.y > kaleUst && p2pState.ball.y < kaleAlt) {
                         if (p2pState.ball.x < 0 && !oyunBeklemede) {
-                            p2pState.score.blue++; p2pState.mesaj = "MAVİ TAKIM GOL ATTI!";
-                            oyunBeklemede = true;
+                            p2pState.score.blue++; p2pState.mesaj = "MAVİ TAKIM GOL ATTI!"; oyunBeklemede = true;
                             setTimeout(() => { if(p2pState.score.blue >= p2pState.skorSiniri) bitirOyun(); else { santraYap(); oyunBeklemede = false; p2pState.mesaj = ""; } }, 3000);
                         } else if (p2pState.ball.x > p2pState.sahaW && !oyunBeklemede) {
-                            p2pState.score.red++; p2pState.mesaj = "KIRMIZI TAKIM GOL ATTI!";
-                            oyunBeklemede = true;
+                            p2pState.score.red++; p2pState.mesaj = "KIRMIZI TAKIM GOL ATTI!"; oyunBeklemede = true;
                             setTimeout(() => { if(p2pState.score.red >= p2pState.skorSiniri) bitirOyun(); else { santraYap(); oyunBeklemede = false; p2pState.mesaj = ""; } }, 3000);
                         }
                     } else {
@@ -473,9 +450,7 @@
 
                 cizimiGuncelle(p2pState);
                 const statePaketi = JSON.stringify({ type: 'state', data: p2pState });
-                for (let id in channels) {
-                    if (channels[id].readyState === 'open') channels[id].send(statePaketi);
-                }
+                for (let id in channels) { if (channels[id].readyState === 'open') channels[id].send(statePaketi); }
             }, 1000 / 60);
         }
 
@@ -488,24 +463,16 @@
             p2pState.players[yeniOyuncuId] = { x: -1000, y: -1000, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: "Bağlanıyor...", inputs: { up:false, down:false, left:false, right:false, shoot:false } };
             startHostLoop();
 
-            const pc = new RTCPeerConnection(rtcConfig);
-            peers[yeniOyuncuId] = pc; iceKuyruklari[yeniOyuncuId] = [];
+            const pc = new RTCPeerConnection(rtcConfig); peers[yeniOyuncuId] = pc; iceKuyruklari[yeniOyuncuId] = [];
+            const dc = pc.createDataChannel("oyunTuneli"); channels[yeniOyuncuId] = dc; veriKanaliniAyarla(dc, yeniOyuncuId);
 
-            const dc = pc.createDataChannel("oyunTuneli");
-            channels[yeniOyuncuId] = dc; veriKanaliniAyarla(dc, yeniOyuncuId);
-
-            pc.onicecandidate = event => {
-                if (event.candidate) socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'ice', candidate: event.candidate } });
-            };
-
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
+            pc.onicecandidate = event => { if (event.candidate) socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'ice', candidate: event.candidate } }); };
+            const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
             socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'offer', sdp: pc.localDescription } });
         });
 
         socket.on('signal', async (data) => {
             const senderId = data.from;
-
             if (isHost) {
                 const pc = peers[senderId]; if (!pc) return;
                 try {
@@ -543,10 +510,8 @@
         function veriKanaliniAyarla(channel, kimlik) {
             const baglantiBasariliYap = () => { 
                 durumMetni.style.display = "none"; 
-                // İstemci, tünel açılır açılmaz Host'a kendi nickini yollar
                 if (isClient) channel.send(JSON.stringify({ type: 'set-nick', nick: myNickname }));
             };
-            
             if (channel.readyState === 'open') baglantiBasariliYap();
             channel.onopen = () => baglantiBasariliYap();
             
