@@ -5,14 +5,14 @@
     <title>NeoPong - WebRTC</title>
     <style>
         body { text-align: center; background-color: #222; color: white; font-family: sans-serif; }
-        canvas { background-color: #557a46; border: 4px solid #fff; margin-top: 10px; border-radius: 10px; }
+        /* Canvas boyutu 900x500 olarak CSS'ten değil, tag içinden ayarlandı. Arka planı JavaScript ile çizeceğiz. */
+        canvas { border: 4px solid #fff; margin-top: 10px; border-radius: 10px; cursor: crosshair; }
         #menu { margin-top: 100px; }
         button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
         #btnResmi { background-color: #3498db; color: white; }
         #btnP2P { background-color: #2ecc71; color: white; }
         input { padding: 10px; font-size: 16px; margin: 10px; border-radius: 5px; border: none; text-align: center; }
         
-        /* Takım Seçim Butonları */
         #takimSecim { display: none; margin-top: 15px; }
         #btnKirmizi { background-color: #e74c3c; color: white; }
         #btnIzleyici { background-color: #7f8c8d; color: white; }
@@ -23,12 +23,10 @@
     <div id="menu">
         <h1 style="font-size: 3em;">NeoPong</h1>
         <p style="color: #aaa;">Sunucu Gecikmesi (Ping): <span id="pingYazisi" style="color: white; font-weight: bold;">Ölçülüyor...</span></p>
-        
         <hr style="width: 400px; border-color: #444; margin: 30px auto;">
         
         <h3>Seçenek A: Merkezi Sunucu</h3>
         <button id="btnResmi">Resmi Sunucuya Katıl</button>
-        
         <br><br><br>
         
         <h3>Seçenek B: Sıfır Ping (Özel P2P Oda)</h3>
@@ -42,9 +40,8 @@
             <h2>NeoPong</h2>
             <p id="durum">Oyuna giriliyor...</p>
         </div>
-        
-        <canvas id="oyunEkrani" width="800" height="400"></canvas>
-        
+        <!-- SAHA BOYUTLARI BÜYÜTÜLDÜ -->
+        <canvas id="oyunEkrani" width="900" height="500"></canvas>
         <div id="takimSecim">
             <button id="btnKirmizi">Kırmızı Takıma Katıl</button>
             <button id="btnIzleyici">İzleyici (Spectator)</button>
@@ -54,6 +51,8 @@
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
+        const MAX_OYUNCU = 4; 
+        
         const oracleIP = "http://132.226.192.255:3000";
         const socket = io(oracleIP);
         
@@ -68,66 +67,81 @@
         setInterval(() => { socket.emit('pingCheck', Date.now()); }, 1000);
         socket.on('pongCheck', (zaman) => { pingYazisi.innerText = (Date.now() - zaman) + " ms"; });
 
-        // --- SAHA VE OYUNCU ÇİZİMİ ---
         function cizimiGuncelle(state) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
-            // Saha Çizgileri (Orta Saha)
-            ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+            // 1. Zemin
+            ctx.fillStyle = "#557a46";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Saha Sınır Çizgileri (Saha: 50'den 850'ye)
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
             ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.moveTo(400, 0); ctx.lineTo(400, 400); ctx.stroke();
-            ctx.beginPath(); ctx.arc(400, 200, 70, 0, Math.PI * 2); ctx.stroke();
+            ctx.strokeRect(50, 50, 800, 400);
 
-            // Kaleler (Sol: Kırmızı, Sağ: Mavi)
-            ctx.fillStyle = "rgba(231, 76, 60, 0.4)"; // Kırmızı Kale
-            ctx.fillRect(0, 125, 30, 150);
-            ctx.fillStyle = "rgba(52, 152, 219, 0.4)"; // Mavi Kale
-            ctx.fillRect(770, 125, 30, 150);
+            // 3. Orta Saha Çizgisi ve Yuvarlağı
+            ctx.beginPath(); ctx.moveTo(450, 50); ctx.lineTo(450, 450); ctx.stroke();
+            ctx.beginPath(); ctx.arc(450, 250, 70, 0, Math.PI * 2); ctx.stroke();
 
-            // Skor Yazısı
+            // 4. Kırmızı Kale (Saha Çizgisinin Dışında)
+            ctx.fillStyle = "rgba(231, 76, 60, 0.4)"; ctx.fillRect(10, 175, 40, 150);
+            ctx.fillStyle = "black"; // Kale Direkleri
+            ctx.beginPath(); ctx.arc(50, 175, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(50, 325, 6, 0, Math.PI*2); ctx.fill();
+
+            // 5. Mavi Kale (Saha Çizgisinin Dışında)
+            ctx.fillStyle = "rgba(52, 152, 219, 0.4)"; ctx.fillRect(850, 175, 40, 150);
+            ctx.fillStyle = "black"; // Kale Direkleri
+            ctx.beginPath(); ctx.arc(850, 175, 6, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(850, 325, 6, 0, Math.PI*2); ctx.fill();
+
+            // Skor Tablosu
             ctx.fillStyle = "white";
-            ctx.font = "bold 40px Arial";
+            ctx.font = "bold 35px Arial";
             ctx.textAlign = "center";
-            ctx.fillText(`${state.score.red} - ${state.score.blue}`, 400, 50);
+            ctx.fillText(`${state.score.red} - ${state.score.blue}`, 450, 38);
 
-            // Topu Çiz
+            if (state.mesaj) {
+                ctx.fillStyle = "yellow";
+                ctx.font = "bold 45px Arial";
+                ctx.fillText(state.mesaj, 450, 250);
+            }
+
+            // Top
             ctx.beginPath();
             ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
             ctx.fillStyle = "white"; ctx.fill(); 
             ctx.strokeStyle = "black"; ctx.lineWidth = 2; ctx.stroke();
 
-            // Sadece Takımda Olan (Spectator Olmayan) Oyuncuları Çiz
+            // Oyuncular
             for (let id in state.players) {
                 let p = state.players[id];
-                if (p.team === 'spectator') continue; // İzleyicileri çizme
+                if (p.team === 'spectator') continue; 
 
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
                 ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
                 
-                // Kendi karakterimizi vurgulayalım
-                if (id === socket.id) {
-                    ctx.strokeStyle = "yellow"; 
-                    ctx.lineWidth = 4;
+                // Şut çekiliyorsa (Boşluk/Sol Tık) karakterin etrafı beyaz parlar
+                if (p.inputs.shoot) {
+                    ctx.strokeStyle = "white"; ctx.lineWidth = 5;
+                } else if (id === socket.id) {
+                    ctx.strokeStyle = "yellow"; ctx.lineWidth = 4;
                 } else {
-                    ctx.strokeStyle = "black"; 
-                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "black"; ctx.lineWidth = 2;
                 }
                 ctx.fill(); ctx.stroke();
             }
         }
 
-        const inputs = { up: false, down: false, left: false, right: false };
+        // INPUTLARA ŞUT (SHOOT) EKLENDİ
+        const inputs = { up: false, down: false, left: false, right: false, shoot: false };
         let isOfficial = false;
 
         function veriGonder() {
-            if (isOfficial) {
-                socket.emit('input', inputs);
-            } else if (isHost && p2pState.players[socket.id]) {
-                p2pState.players[socket.id].inputs = { ...inputs };
-            } else if (isClient && hostChannel && hostChannel.readyState === 'open') {
-                hostChannel.send(JSON.stringify({ type: 'input', data: inputs }));
-            }
+            if (isOfficial) socket.emit('input', inputs);
+            else if (isHost && p2pState.players[socket.id]) p2pState.players[socket.id].inputs = { ...inputs };
+            else if (isClient && hostChannel && hostChannel.readyState === 'open') hostChannel.send(JSON.stringify({ type: 'input', data: inputs }));
         }
 
         window.addEventListener('keydown', (e) => {
@@ -135,6 +149,7 @@
             if (['s', 'ArrowDown'].includes(e.key)) inputs.down = true;
             if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = true;
             if (['d', 'ArrowRight'].includes(e.key)) inputs.right = true;
+            if (e.key === ' ') inputs.shoot = true; // BOŞLUK TUŞU ŞUT
             veriGonder();
         });
         window.addEventListener('keyup', (e) => {
@@ -142,14 +157,22 @@
             if (['s', 'ArrowDown'].includes(e.key)) inputs.down = false;
             if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = false;
             if (['d', 'ArrowRight'].includes(e.key)) inputs.right = false;
+            if (e.key === ' ') inputs.shoot = false;
             veriGonder();
         });
+        
+        // FARE SOL TIK ŞUT
+        window.addEventListener('mousedown', (e) => {
+            if (e.button === 0) { inputs.shoot = true; veriGonder(); }
+        });
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 0) { inputs.shoot = false; veriGonder(); }
+        });
 
-        // TAKIM SEÇME BUTONLARI İŞLEVLERİ
         function takimDegistir(yeniTakim) {
             if (isHost) {
                 p2pState.players[socket.id].team = yeniTakim;
-                pozisyonSifirla(socket.id); // Takıma girince uygun yere at
+                pozisyonSifirla(socket.id); 
             } else if (isClient && hostChannel && hostChannel.readyState === 'open') {
                 hostChannel.send(JSON.stringify({ type: 'team-change', team: yeniTakim }));
             }
@@ -158,28 +181,26 @@
         document.getElementById('btnIzleyici').addEventListener('click', () => takimDegistir('spectator'));
         document.getElementById('btnMavi').addEventListener('click', () => takimDegistir('blue'));
 
-        // --- RESMİ SUNUCU KISMI ---
         document.getElementById('btnResmi').addEventListener('click', () => {
             isOfficial = true; menuDiv.style.display = "none"; oyunAlaniDiv.style.display = "block";
             socket.emit('join-official'); 
             socket.on('oyunDurumu', (state) => cizimiGuncelle(state));
         });
 
-        // ---------------------------------------------------------
         // WEBRTC P2P FİZİK MOTORU (HOST)
-        // ---------------------------------------------------------
-        let isHost = false;
-        let isClient = false;
-        const peers = {}; const channels = {}; const iceKuyruklari = {};
-        let hostConnection = null; let hostChannel = null; let clientIceKuyrugu = [];
+        let isHost = false, isClient = false;
+        const peers = {}, channels = {}, iceKuyruklari = {};
+        let hostConnection = null, hostChannel = null, clientIceKuyrugu = [];
         const rtcConfig = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
 
         let p2pState = {
             players: {},
-            ball: { x: 400, y: 200, vx: 0, vy: 0, radius: 10 },
-            score: { red: 0, blue: 0 }
+            ball: { x: 450, y: 250, vx: 0, vy: 0, radius: 10 },
+            score: { red: 0, blue: 0 },
+            mesaj: "" 
         };
         let gameLoopActif = false;
+        let oyunBeklemede = false; 
 
         document.getElementById('btnP2P').addEventListener('click', () => {
             const oda = document.getElementById('odaKodu').value;
@@ -188,29 +209,25 @@
             isOfficial = false;
             menuDiv.style.display = "none";
             oyunAlaniDiv.style.display = "block";
-            takimSecimDiv.style.display = "block"; // Butonları göster
-            durumMetni.innerText = "Oda bekleniyor..."; durumMetni.style.color = "yellow";
+            takimSecimDiv.style.display = "block"; 
             
             socket.emit('join-p2p', oda); 
-            
-            // Odayı Kuran İzleyici Olarak Başlar
-            p2pState.players[socket.id] = { x: -100, y: -100, vx: 0, vy: 0, radius: 15, team: 'spectator', inputs: { up:false, down:false, left:false, right:false } };
+            p2pState.players[socket.id] = { x: -100, y: -100, vx: 0, vy: 0, radius: 20, team: 'spectator', inputs: { up:false, down:false, left:false, right:false, shoot:false } };
             cizimiGuncelle(p2pState);
         });
 
         function pozisyonSifirla(id) {
             let p = p2pState.players[id];
             p.vx = 0; p.vy = 0;
-            if (p.team === 'red') { p.x = 200; p.y = 200; }
-            else if (p.team === 'blue') { p.x = 600; p.y = 200; }
-            else { p.x = -100; p.y = -100; } // İzleyici ekran dışı
+            p.radius = 20; // Oyuncu Boyutu Büyüdü
+            if (p.team === 'red') { p.x = 250; p.y = 250; }
+            else if (p.team === 'blue') { p.x = 650; p.y = 250; }
+            else { p.x = -100; p.y = -100; } 
         }
 
         function santraYap() {
-            p2pState.ball = { x: 400, y: 200, vx: 0, vy: 0, radius: 10 };
-            for (let id in p2pState.players) {
-                pozisyonSifirla(id);
-            }
+            p2pState.ball = { x: 450, y: 250, vx: 0, vy: 0, radius: 10 };
+            for (let id in p2pState.players) pozisyonSifirla(id);
         }
 
         function startHostLoop() {
@@ -218,77 +235,101 @@
             gameLoopActif = true;
 
             setInterval(() => {
-                // FİZİKLER
-                for (let id in p2pState.players) {
-                    let p = p2pState.players[id];
-                    if (p.team === 'spectator') continue; // İzleyici ise hesaplama yapma
-                    
-                    if (p.inputs.up) p.vy -= 0.5;
-                    if (p.inputs.down) p.vy += 0.5;
-                    if (p.inputs.left) p.vx -= 0.5;
-                    if (p.inputs.right) p.vx += 0.5;
+                if (!oyunBeklemede) {
+                    for (let id in p2pState.players) {
+                        let p = p2pState.players[id];
+                        if (p.team === 'spectator') continue; 
+                        
+                        if (p.inputs.up) p.vy -= 0.5;
+                        if (p.inputs.down) p.vy += 0.5;
+                        if (p.inputs.left) p.vx -= 0.5;
+                        if (p.inputs.right) p.vx += 0.5;
 
-                    p.vx *= 0.9; p.vy *= 0.9;
-                    p.x += p.vx; p.y += p.vy;
+                        p.vx *= 0.9; p.vy *= 0.9;
+                        p.x += p.vx; p.y += p.vy;
 
-                    // Saha Kenarları Sınırı
-                    if (p.x < p.radius) p.x = p.radius;
-                    if (p.x > 800 - p.radius) p.x = 800 - p.radius;
-                    if (p.y < p.radius) p.y = p.radius;
-                    if (p.y > 400 - p.radius) p.y = 400 - p.radius;
+                        // Saha Sınırları: Oyuncular sadece ana sahada (50 ile 850 arası) kalabilir
+                        if (p.x < 50 + p.radius) p.x = 50 + p.radius;
+                        if (p.x > 850 - p.radius) p.x = 850 - p.radius;
+                        if (p.y < 50 + p.radius) p.y = 50 + p.radius;
+                        if (p.y > 450 - p.radius) p.y = 450 - p.radius;
 
-                    let dx = p2pState.ball.x - p.x;
-                    let dy = p2pState.ball.y - p.y;
-                    let mesafe = Math.sqrt(dx * dx + dy * dy);
-                    
-                    // Oyuncu Topa Çarptıysa
-                    if (mesafe < p.radius + p2pState.ball.radius) {
-                        let aci = Math.atan2(dy, dx);
-                        p2pState.ball.vx += Math.cos(aci) * 2;
-                        p2pState.ball.vy += Math.sin(aci) * 2;
+                        let dx = p2pState.ball.x - p.x;
+                        let dy = p2pState.ball.y - p.y;
+                        let mesafe = Math.sqrt(dx * dx + dy * dy);
+                        let temasMesafesi = p.radius + p2pState.ball.radius;
+                        
+                        // YENİ ŞUT VE ÇARPIŞMA FİZİĞİ
+                        if (mesafe < temasMesafesi) {
+                            let overlap = temasMesafesi - mesafe;
+                            let aci = Math.atan2(dy, dx);
+                            
+                            // Topun karakterin içine girmesini engelle (Dışarı it)
+                            p2pState.ball.x += Math.cos(aci) * overlap;
+                            p2pState.ball.y += Math.sin(aci) * overlap;
+                            
+                            // Şut çekilmiyorsa çok hafif it (Topu sürmek için)
+                            p2pState.ball.vx += Math.cos(aci) * 0.3;
+                            p2pState.ball.vy += Math.sin(aci) * 0.3;
+                        }
+                        
+                        // Şut Etki Alanı (Temas mesafesinden biraz daha uzaktan da vurulabilir)
+                        if (p.inputs.shoot && mesafe < temasMesafesi + 4) {
+                            let aci = Math.atan2(dy, dx);
+                            p2pState.ball.vx += Math.cos(aci) * 6; // Yüksek Şut Gücü
+                            p2pState.ball.vy += Math.sin(aci) * 6;
+                        }
                     }
-                }
 
-                p2pState.ball.x += p2pState.ball.vx;
-                p2pState.ball.y += p2pState.ball.vy;
-                p2pState.ball.vx *= 0.98;
-                p2pState.ball.vy *= 0.98;
+                    p2pState.ball.x += p2pState.ball.vx;
+                    p2pState.ball.y += p2pState.ball.vy;
+                    p2pState.ball.vx *= 0.98;
+                    p2pState.ball.vy *= 0.98;
 
-                // Üst ve Alt Duvarlardan Sekme
-                if (p2pState.ball.y < p2pState.ball.radius || p2pState.ball.y > 400 - p2pState.ball.radius) {
-                    p2pState.ball.vy *= -1;
-                    p2pState.ball.y = p2pState.ball.y < p2pState.ball.radius ? p2pState.ball.radius : 400 - p2pState.ball.radius;
-                }
-
-                // GOL KONTROLÜ
-                const kaleUst = 125, kaleAlt = 275;
-                if (p2pState.ball.x < 30) {
-                    if (p2pState.ball.y > kaleUst && p2pState.ball.y < kaleAlt) {
-                        // Kırmızı kaleye girdi, Mavi Gol!
-                        p2pState.score.blue++;
-                        santraYap();
-                    } else {
-                        // Duvara çarptı sek
-                        p2pState.ball.vx *= -1; p2pState.ball.x = 30;
+                    // Top Sınırları ve Gol Kontrolü
+                    const kaleUst = 175, kaleAlt = 325;
+                    
+                    // Üst ve Alt Duvarlar
+                    if (p2pState.ball.y < 50 + p2pState.ball.radius) {
+                        p2pState.ball.vy *= -1; p2pState.ball.y = 50 + p2pState.ball.radius;
+                    } else if (p2pState.ball.y > 450 - p2pState.ball.radius) {
+                        p2pState.ball.vy *= -1; p2pState.ball.y = 450 - p2pState.ball.radius;
                     }
-                } else if (p2pState.ball.x > 770) {
+
                     if (p2pState.ball.y > kaleUst && p2pState.ball.y < kaleAlt) {
-                        // Mavi kaleye girdi, Kırmızı Gol!
-                        p2pState.score.red++;
-                        santraYap();
+                        // Kale Ağzı - İçeri girebilir, sınırlar kale dipleridir (10 ve 890)
+                        if (p2pState.ball.x < 10 + p2pState.ball.radius) {
+                            p2pState.ball.vx *= -1; p2pState.ball.x = 10 + p2pState.ball.radius;
+                        } else if (p2pState.ball.x > 890 - p2pState.ball.radius) {
+                            p2pState.ball.vx *= -1; p2pState.ball.x = 890 - p2pState.ball.radius;
+                        }
+                        
+                        // Gol Onayı (50 ve 850 çizgilerini geçerse)
+                        if (p2pState.ball.x < 50 && !oyunBeklemede) {
+                            p2pState.score.blue++;
+                            p2pState.mesaj = "MAVİ TAKIM GOL ATTI!";
+                            oyunBeklemede = true;
+                            setTimeout(() => { santraYap(); oyunBeklemede = false; p2pState.mesaj = ""; }, 3000);
+                        } else if (p2pState.ball.x > 850 && !oyunBeklemede) {
+                            p2pState.score.red++;
+                            p2pState.mesaj = "KIRMIZI TAKIM GOL ATTI!";
+                            oyunBeklemede = true;
+                            setTimeout(() => { santraYap(); oyunBeklemede = false; p2pState.mesaj = ""; }, 3000);
+                        }
                     } else {
-                        p2pState.ball.vx *= -1; p2pState.ball.x = 770;
+                        // Kalede değilse sağ ve sol duvarlar normal çizgidendir (50 ve 850)
+                        if (p2pState.ball.x < 50 + p2pState.ball.radius) {
+                            p2pState.ball.vx *= -1; p2pState.ball.x = 50 + p2pState.ball.radius;
+                        } else if (p2pState.ball.x > 850 - p2pState.ball.radius) {
+                            p2pState.ball.vx *= -1; p2pState.ball.x = 850 - p2pState.ball.radius;
+                        }
                     }
                 }
 
                 cizimiGuncelle(p2pState);
-
-                // DURUMU İSTEMCİLERE GÖNDER
                 const statePaketi = JSON.stringify({ type: 'state', data: p2pState });
                 for (let id in channels) {
-                    if (channels[id].readyState === 'open') {
-                        channels[id].send(statePaketi);
-                    }
+                    if (channels[id].readyState === 'open') channels[id].send(statePaketi);
                 }
             }, 1000 / 60);
         }
@@ -297,8 +338,10 @@
             if (isClient) return; 
             isHost = true; 
             
-            // Yeni geleni İzleyici olarak ekle
-            p2pState.players[yeniOyuncuId] = { x: -100, y: -100, vx: 0, vy: 0, radius: 15, team: 'spectator', inputs: { up:false, down:false, left:false, right:false } };
+            if (Object.keys(p2pState.players).length >= MAX_OYUNCU) return; 
+            durumMetni.style.display = "none"; 
+            
+            p2pState.players[yeniOyuncuId] = { x: -100, y: -100, vx: 0, vy: 0, radius: 20, team: 'spectator', inputs: { up:false, down:false, left:false, right:false, shoot:false } };
             startHostLoop();
 
             const pc = new RTCPeerConnection(rtcConfig);
@@ -316,9 +359,6 @@
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'offer', sdp: pc.localDescription } });
-            
-            durumMetni.innerText = "P2P Aktif. Odada " + (Object.keys(peers).length + 1) + " kişi var.";
-            durumMetni.style.color = "cyan";
         });
 
         socket.on('signal', async (data) => {
@@ -340,9 +380,6 @@
             }
 
             isClient = true; 
-            durumMetni.innerText = "Host bulundu, P2P tüneli kazılıyor...";
-            durumMetni.style.color = "orange";
-
             if (!hostConnection) {
                 hostConnection = new RTCPeerConnection(rtcConfig);
                 hostConnection.ondatachannel = event => {
@@ -360,7 +397,6 @@
                     const answer = await hostConnection.createAnswer();
                     await hostConnection.setLocalDescription(answer);
                     socket.emit('signal', { to: senderId, signal: { type: 'answer', sdp: hostConnection.localDescription } });
-                    
                     while(clientIceKuyrugu.length > 0) await hostConnection.addIceCandidate(clientIceKuyrugu.shift());
                 } else if (data.signal.type === 'ice') {
                     if (hostConnection.remoteDescription) await hostConnection.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
@@ -370,31 +406,19 @@
         });
 
         function veriKanaliniAyarla(channel, kimlik) {
-            const baglantiBasariliYap = () => {
-                if(isClient) {
-                    durumMetni.innerText = "Host'a bağlandı! P2P aktif.";
-                    durumMetni.style.color = "cyan";
-                }
-            };
-
+            const baglantiBasariliYap = () => { durumMetni.style.display = "none"; };
             if (channel.readyState === 'open') baglantiBasariliYap();
             channel.onopen = () => baglantiBasariliYap();
             
             channel.onmessage = (event) => {
                 const mesaj = JSON.parse(event.data);
-                
                 if (isHost) {
-                    if (mesaj.type === 'input' && p2pState.players[kimlik]) {
-                        p2pState.players[kimlik].inputs = mesaj.data;
-                    } else if (mesaj.type === 'team-change' && p2pState.players[kimlik]) {
-                        // İstemci takım değiştirmek istediğinde
+                    if (mesaj.type === 'input' && p2pState.players[kimlik]) p2pState.players[kimlik].inputs = mesaj.data;
+                    else if (mesaj.type === 'team-change' && p2pState.players[kimlik]) {
                         p2pState.players[kimlik].team = mesaj.team;
                         pozisyonSifirla(kimlik);
                     }
-                } 
-                else if (isClient && mesaj.type === 'state') {
-                    cizimiGuncelle(mesaj.data);
-                }
+                } else if (isClient && mesaj.type === 'state') cizimiGuncelle(mesaj.data);
             };
         }
     </script>
