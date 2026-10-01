@@ -233,7 +233,6 @@
                     ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
                     ctx.fill();
 
-                    // ŞARJ HALKASI: Tuşa basılı tutarken (chargeShoot) veya şut anında (shoot) yanar
                     if (p.inputs && (p.inputs.chargeShoot || p.inputs.shoot)) { 
                         ctx.strokeStyle = "white"; 
                         ctx.lineWidth = 4; 
@@ -303,7 +302,6 @@
         }
         requestAnimationFrame(renderLoop);
 
-        // YENİ GİRDİ SİSTEMİ (chargeShoot eklendi)
         const inputs = { up: false, down: false, left: false, right: false, chargeShoot: false, shoot: false, sprint: false };
         let isOfficial = false;
 
@@ -324,7 +322,7 @@
             setTimeout(() => {
                 inputs.shoot = false;
                 veriGonder();
-            }, 60); // 60ms içinde şut komutu işlenir
+            }, 60);
         }
 
         window.addEventListener('keydown', (e) => {
@@ -333,7 +331,7 @@
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = true;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = true;
             if (e.key === 'Shift') inputs.sprint = true;
-            if (e.key === ' ' && !inputs.chargeShoot) { inputs.chargeShoot = true; } // Basılı tutarken şarj
+            if (e.key === ' ' && !inputs.chargeShoot) { inputs.chargeShoot = true; } 
             veriGonder();
         });
 
@@ -343,7 +341,7 @@
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = false;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = false;
             if (e.key === 'Shift') inputs.sprint = false;
-            if (e.key === ' ') { triggerShoot(); return; } // Çekince Şut At
+            if (e.key === ' ') { triggerShoot(); return; } 
             veriGonder();
         });
 
@@ -416,12 +414,15 @@
             resizeCanvas();
             kontrolPaneli.style.display = "block";
             durumMetni.style.display = "none";
+            
             document.getElementById('takimSecim').style.display = "none";
             document.getElementById('ayarlar').style.display = "none";
             document.getElementById('btnMacBitir').style.display = "none";
 
             socket.emit('join-official'); 
-            socket.on('oyunDurumu', (state) => { sonGelenState = state; });
+            socket.on('oyunDurumu', (state) => {
+                cizimiGuncelle(state);
+            });
         });
 
         document.getElementById('btnMacBitir').addEventListener('click', () => {
@@ -452,8 +453,26 @@
             ]
         };
 
-        const SAHALAR = { 'kucuk': { w: 900, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
-        let p2pState = { players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [] };
+        const SAHALAR = { 
+            'kucuk': { w: 900, h: 500, goal: 150 }, 
+            'orta': { w: 1400, h: 800, goal: 200 }, 
+            'buyuk': { w: 2000, h: 1200, goal: 300 }, 
+            'anasininki': { w: 4000, h: 2500, goal: 500 } 
+        };
+        
+        let p2pState = { 
+            players: {}, 
+            ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, 
+            score: { red: 0, blue: 0 }, 
+            mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", 
+            isPlaying: false, 
+            skorSiniri: 3, 
+            kalanSure: 180, 
+            sahaW: 1400, 
+            sahaH: 800, 
+            kaleBoyutu: 200, 
+            powerups: [] 
+        };
         let gameLoopActif = false, oyunBeklemede = false, frameCount = 0;
 
         document.getElementById('btnP2P').addEventListener('click', () => {
@@ -655,8 +674,8 @@
                             let mDy = p.y - p2pState.ball.y;
                             let mDist = Math.hypot(mDx, mDy);
                             if (mDist > 0) {
-                                p2pState.ball.vx += (mDx / mDist) * 0.1;
-                                p2pState.ball.vy += (mDy / mDist) * 0.1;
+                                p2pState.ball.vx += (mDx / mDist) * 0.35;
+                                p2pState.ball.vy += (mDy / mDist) * 0.35;
                             }
                         }
 
@@ -675,18 +694,18 @@
                             p.x -= nx * (overlap * 0.3);
                             p.y -= ny * (overlap * 0.3);
 
-                            p2pState.ball.vx += nx * 0.15; 
-                            p2pState.ball.vy += ny * 0.15;
-                        } else if (mesafe < temasMesafesi + 12) {
-                            p2pState.ball.vx *= 0.6; 
-                            p2pState.ball.vy *= 0.6;
+                            p2pState.ball.vx += nx * 0.6; 
+                            p2pState.ball.vy += ny * 0.6;
+                        } else if (mesafe < temasMesafesi + 10) {
+                            p2pState.ball.vx *= 0.92; 
+                            p2pState.ball.vy *= 0.92;
                         }
 
-                        if (p.inputs.shoot && mesafe < temasMesafesi + 8) {
+                        if (p.inputs.shoot && mesafe < temasMesafesi + 12) {
                             let aci = Math.atan2(dy, dx); 
-                            let vurusHizi = 7.0; 
+                            let vurusHizi = 8.0; 
                             if (p.buffs && p.buffs.powerShotReady) { 
-                                vurusHizi = 13.5; 
+                                vurusHizi = 15.0; 
                                 p.buffs.powerShotReady = false; 
                             }
                             p2pState.ball.vx += Math.cos(aci) * vurusHizi; 
@@ -719,10 +738,10 @@
                     p2pState.ball.x += p2pState.ball.vx; 
                     p2pState.ball.y += p2pState.ball.vy; 
                     
-                    p2pState.ball.vx *= 0.96; 
-                    p2pState.ball.vy *= 0.96;
-                    if (Math.abs(p2pState.ball.vx) < 0.1) p2pState.ball.vx = 0;
-                    if (Math.abs(p2pState.ball.vy) < 0.1) p2pState.ball.vy = 0;
+                    p2pState.ball.vx *= 0.98; 
+                    p2pState.ball.vy *= 0.98;
+                    if (Math.abs(p2pState.ball.vx) < 0.05) p2pState.ball.vx = 0;
+                    if (Math.abs(p2pState.ball.vy) < 0.05) p2pState.ball.vy = 0;
 
                     let kaleUst = (p2pState.sahaH / 2) - (p2pState.kaleBoyutu / 2); 
                     let kaleAlt = (p2pState.sahaH / 2) + (p2pState.kaleBoyutu / 2);
@@ -747,7 +766,7 @@
                             }, 3000);
                         } else if (p2pState.ball.x > p2pState.sahaW + p2pState.ball.radius && !oyunBeklemede) {
                             p2pState.score.red++; 
-                            p2pState.mesaj = "KIRMIZI TAKIM GOL ATTI!"; 
+                            p2pState.mesaj = "KIRMI बुन्देलK GOL ATTI!"; 
                             oyunBeklemede = true;
                             setTimeout(() => { 
                                 if(p2pState.score.red >= p2pState.skorSiniri) bitirOyun(); 
