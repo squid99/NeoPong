@@ -2,7 +2,6 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <!-- MOBİL İÇİN EKRAN YAKINLAŞTIRMAYI ENGELLER -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NeoPong - WebRTC Final (Mobil Uyumlu)</title>
     <style>
@@ -26,11 +25,11 @@
         #btnMacBitir { background-color: #8e44ad; color: white; margin-left: 15px; display: none; }
         #ayarlar { background: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 5px; margin-top: 10px; }
 
-        /* MOBİL KONTROL CSS */
-        #mobilKontroller { display: none; position: absolute; bottom: 0; left: 0; width: 100vw; height: 200px; z-index: 100; pointer-events: none; }
-        #joystickAlan { position: absolute; bottom: 40px; left: 40px; width: 140px; height: 140px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
+        /* MOBİL KONTROL CSS (Yukarı çekildi) */
+        #mobilKontroller { display: none; position: absolute; bottom: 0; left: 0; width: 100vw; height: 100vh; z-index: 100; pointer-events: none; }
+        #joystickAlan { position: absolute; bottom: 100px; left: 40px; width: 140px; height: 140px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
         #joystickTop { position: absolute; top: 35px; left: 35px; width: 70px; height: 70px; background: rgba(255,255,255,0.6); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        #btnMobilSut { position: absolute; bottom: 50px; right: 40px; width: 100px; height: 100px; border-radius: 50%; background: rgba(231, 76, 60, 0.6); border: 2px solid rgba(231, 76, 60, 0.8); color: white; font-weight: bold; font-size: 24px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        #btnMobilSut { position: absolute; bottom: 100px; right: 40px; width: 100px; height: 100px; border-radius: 50%; background: rgba(231, 76, 60, 0.6); border: 2px solid rgba(231, 76, 60, 0.8); color: white; font-weight: bold; font-size: 24px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
         #btnMobilSut:active { background: rgba(231, 76, 60, 0.9); }
     </style>
 </head>
@@ -71,7 +70,6 @@
             <button id="btnMacBitir">Maçı Bitir</button>
         </div>
 
-        <!-- MOBİL KONTROLLER (Sadece dokunmatik ekranlarda açılır) -->
         <div id="mobilKontroller">
             <div id="joystickAlan"><div id="joystickTop"></div></div>
             <button id="btnMobilSut">ŞUT</button>
@@ -215,7 +213,6 @@
             else if (isClient && hostChannel && hostChannel.readyState === 'open') hostChannel.send(JSON.stringify({ type: 'input', data: inputs }));
         }
 
-        // KLAVYE VE FARE KONTROLLERİ
         window.addEventListener('keydown', (e) => {
             if (['w', 'ArrowUp'].includes(e.key)) inputs.up = true;
             if (['s', 'ArrowDown'].includes(e.key)) inputs.down = true;
@@ -235,9 +232,6 @@
         window.addEventListener('mousedown', (e) => { if (e.button === 0) { inputs.shoot = true; veriGonder(); } });
         window.addEventListener('mouseup', (e) => { if (e.button === 0) { inputs.shoot = false; veriGonder(); } });
 
-        // ---------------------------------------------------------
-        // MOBİL DOKUNMATİK KONTROLLER (JOYSTICK & ŞUT)
-        // ---------------------------------------------------------
         const mobilKontroller = document.getElementById('mobilKontroller');
         const joystickAlan = document.getElementById('joystickAlan');
         const joystickTop = document.getElementById('joystickTop');
@@ -245,17 +239,14 @@
         let joyTouchId = null;
         let jCenterX = 0, jCenterY = 0;
 
-        // Cihaz dokunmatik ekranlıysa butonları göster
         if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
             mobilKontroller.style.display = 'block';
         }
 
-        // Mobil Şut Butonu
         btnMobilSut.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.shoot = true; veriGonder(); }, {passive: false});
         btnMobilSut.addEventListener('touchend', (e) => { e.preventDefault(); inputs.shoot = false; veriGonder(); }, {passive: false});
         btnMobilSut.addEventListener('touchcancel', (e) => { e.preventDefault(); inputs.shoot = false; veriGonder(); }, {passive: false});
 
-        // Joystick Hareketi
         joystickAlan.addEventListener('touchstart', (e) => {
             e.preventDefault();
             if (joyTouchId !== null) return;
@@ -296,7 +287,7 @@
             let dx = touch.clientX - jCenterX;
             let dy = touch.clientY - jCenterY;
             let dist = Math.hypot(dx, dy);
-            let maxDist = 35; // İç topun çıkabileceği maksimum mesafe
+            let maxDist = 35; 
             
             if (dist > maxDist) {
                 dx = (dx / dist) * maxDist;
@@ -313,9 +304,6 @@
             veriGonder();
         }
 
-        // ---------------------------------------------------------
-        // ARAYÜZ VE OYUN MANTIĞI
-        // ---------------------------------------------------------
         function takimDegistir(yeniTakim) {
             if (isHost && !p2pState.isPlaying) {
                 p2pState.players[socket.id].team = yeniTakim; pozisyonSifirla(socket.id); 
