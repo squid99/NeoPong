@@ -95,8 +95,12 @@
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
 
-        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resizeCanvas); resizeCanvas();
+        function resizeCanvas() { 
+            canvas.width = window.innerWidth; 
+            canvas.height = window.innerHeight; 
+        }
+        window.addEventListener('resize', resizeCanvas); 
+        resizeCanvas();
 
         let currentPing = 0;
         setInterval(() => { socket.emit('pingCheck', Date.now()); }, 1000);
@@ -104,13 +108,21 @@
 
         let myNickname = "Oyuncu";
         window.currentZoom = 1;
+        let sonGelenState = null;
 
         function cizimiGuncelle(state) {
+            if (!state || !state.ball || !state.sahaW) return;
+            sonGelenState = state;
+
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                resizeCanvas();
+            }
+
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.fillStyle = "#2c3e23";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            let myP = state.players[socket.id];
+            let myP = state.players ? state.players[socket.id] : null;
             let focusX = state.ball.x;
             let focusY = state.ball.y;
             let targetZoom = 1;
@@ -122,6 +134,7 @@
                 let idealZoom = (Math.min(canvas.width, canvas.height) * 0.55) / Math.max(dist, 200);
                 targetZoom = Math.max(0.4, Math.min(1.4, idealZoom));
             }
+            if (isNaN(window.currentZoom)) window.currentZoom = 1;
             window.currentZoom += (targetZoom - window.currentZoom) * 0.05; 
 
             ctx.save();
@@ -129,7 +142,7 @@
             ctx.scale(window.currentZoom, window.currentZoom);
             ctx.translate(-focusX, -focusY);
 
-            // Saha Zemin Çizimi (Hizalama Düzeltildi)
+            // Saha Zemin Çizimi
             ctx.fillStyle = "#4a6b3d"; 
             ctx.fillRect(0, 0, state.sahaW, state.sahaH);
             ctx.fillStyle = "#527543"; 
@@ -199,55 +212,57 @@
             ctx.stroke();
 
             // Oyuncular
-            for (let id in state.players) {
-                let p = state.players[id];
-                if (p.team === 'spectator') continue; 
-                
-                if (p.buffs) {
-                    if (p.buffs.dashTimer > 0) { 
-                        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 7, 0, Math.PI * 2); 
-                        ctx.strokeStyle = "rgba(241, 196, 15, 0.8)"; ctx.lineWidth = 3; ctx.stroke(); 
+            if (state.players) {
+                for (let id in state.players) {
+                    let p = state.players[id];
+                    if (p.team === 'spectator') continue; 
+                    
+                    if (p.buffs) {
+                        if (p.buffs.dashTimer > 0) { 
+                            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 7, 0, Math.PI * 2); 
+                            ctx.strokeStyle = "rgba(241, 196, 15, 0.8)"; ctx.lineWidth = 3; ctx.stroke(); 
+                        }
+                        if (p.buffs.powerShotReady) { 
+                            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 11, 0, Math.PI * 2); 
+                            ctx.strokeStyle = "rgba(155, 89, 182, 0.8)"; ctx.lineWidth = 3; ctx.stroke(); 
+                        }
+                        if (p.buffs.magnetTimer > 0) { 
+                            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 15, 0, Math.PI * 2); 
+                            ctx.strokeStyle = "rgba(230, 126, 34, 0.8)"; ctx.lineWidth = 3; ctx.stroke(); 
+                        }
                     }
-                    if (p.buffs.powerShotReady) { 
-                        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 11, 0, Math.PI * 2); 
-                        ctx.strokeStyle = "rgba(155, 89, 182, 0.8)"; ctx.lineWidth = 3; ctx.stroke(); 
-                    }
-                    if (p.buffs.magnetTimer > 0) { 
-                        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 15, 0, Math.PI * 2); 
-                        ctx.strokeStyle = "rgba(230, 126, 34, 0.8)"; ctx.lineWidth = 3; ctx.stroke(); 
-                    }
-                }
 
-                ctx.beginPath(); 
-                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-                ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
-                ctx.fill();
+                    ctx.beginPath(); 
+                    ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
+                    ctx.fill();
 
-                if (p.inputs && p.inputs.shoot) { 
-                    ctx.strokeStyle = "white"; 
-                    ctx.lineWidth = 4; 
-                } else if (id === socket.id) { 
-                    ctx.strokeStyle = "rgba(200, 200, 200, 0.75)"; 
-                    ctx.lineWidth = 2; // İnce ve gri halka
-                } else { 
+                    if (p.inputs && p.inputs.shoot) { 
+                        ctx.strokeStyle = "white"; 
+                        ctx.lineWidth = 4; 
+                    } else if (id === socket.id) { 
+                        ctx.strokeStyle = "rgba(200, 200, 200, 0.75)"; 
+                        ctx.lineWidth = 2;
+                    } else { 
+                        ctx.strokeStyle = "black"; 
+                        ctx.lineWidth = 2; 
+                    }
+                    ctx.stroke();
+                    
+                    ctx.fillStyle = "white"; 
+                    ctx.font = "bold 14px Arial"; 
+                    ctx.textAlign = "center"; 
                     ctx.strokeStyle = "black"; 
-                    ctx.lineWidth = 2; 
-                }
-                ctx.stroke();
-                
-                ctx.fillStyle = "white"; 
-                ctx.font = "bold 14px Arial"; 
-                ctx.textAlign = "center"; 
-                ctx.strokeStyle = "black"; 
-                ctx.lineWidth = 2;
-                ctx.strokeText(p.nick, p.x, p.y + p.radius + 16); 
-                ctx.fillText(p.nick, p.x, p.y + p.radius + 16);
+                    ctx.lineWidth = 2;
+                    ctx.strokeText(p.nick || "Oyuncu", p.x, p.y + p.radius + 16); 
+                    ctx.fillText(p.nick || "Oyuncu", p.x, p.y + p.radius + 16);
 
-                let st = p.stamina !== undefined ? p.stamina : 100;
-                ctx.fillStyle = "rgba(0,0,0,0.6)"; 
-                ctx.fillRect(p.x - 18, p.y + p.radius + 22, 36, 5);
-                ctx.fillStyle = st > 50 ? "#2ecc71" : (st > 20 ? "#f1c40f" : "#e74c3c");
-                ctx.fillRect(p.x - 18, p.y + p.radius + 22, (st / 100) * 36, 5);
+                    let st = p.stamina !== undefined ? p.stamina : 100;
+                    ctx.fillStyle = "rgba(0,0,0,0.6)"; 
+                    ctx.fillRect(p.x - 18, p.y + p.radius + 22, 36, 5);
+                    ctx.fillStyle = st > 50 ? "#2ecc71" : (st > 20 ? "#f1c40f" : "#e74c3c");
+                    ctx.fillRect(p.x - 18, p.y + p.radius + 22, (st / 100) * 36, 5);
+                }
             }
             ctx.restore(); 
 
@@ -279,20 +294,20 @@
                 ctx.fillText(state.mesaj, canvas.width / 2, canvas.height / 2);
             }
 
-            // Sol Alt Köşe Ping Göstergesi
             ctx.fillStyle = "rgba(255, 255, 255, 0.7)"; 
             ctx.font = "bold 16px Arial"; 
             ctx.textAlign = "left";
             ctx.fillText(`Ping: ${currentPing} ms`, 20, canvas.height - 20);
-
-            if (isOfficial) {
-                document.getElementById('takimSecim').style.display = "none";
-            } else {
-                document.getElementById('takimSecim').style.display = state.isPlaying ? "none" : "block";
-                document.getElementById('ayarlar').style.display = state.isPlaying ? "none" : "block";
-                if (isHost) document.getElementById('btnMacBitir').style.display = state.isPlaying ? "inline-block" : "none";
-            }
         }
+
+        // Çizim akışı (render loop)
+        function renderLoop() {
+            if (sonGelenState) {
+                cizimiGuncelle(sonGelenState);
+            }
+            requestAnimationFrame(renderLoop);
+        }
+        requestAnimationFrame(renderLoop);
 
         const inputs = { up: false, down: false, left: false, right: false, shoot: false, sprint: false };
         let isOfficial = false;
@@ -331,12 +346,12 @@
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = false;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = false;
             if (e.key === 'Shift') inputs.sprint = false;
-            if (e.key === ' ') triggerShoot(); // Space bırakılınca şut
+            if (e.key === ' ') triggerShoot();
             veriGonder();
         });
 
         window.addEventListener('mouseup', (e) => {
-            if (e.button === 0) triggerShoot(); // Tık bırakılınca şut
+            if (e.button === 0) triggerShoot();
         });
 
         const mobilKontroller = document.getElementById('mobilKontroller');
@@ -390,11 +405,12 @@
         document.getElementById('btnIzleyici').addEventListener('click', () => takimDegistir('spectator'));
         document.getElementById('btnMavi').addEventListener('click', () => takimDegistir('blue'));
 
-        // Resmi Sunucu Girişi
+        // RESMİ SUNUCU BAĞLANTISI
         document.getElementById('btnResmi').addEventListener('click', () => {
             isOfficial = true; 
             menuDiv.style.display = "none"; 
             canvas.style.display = "block"; 
+            resizeCanvas();
             kontrolPaneli.style.display = "block";
             durumMetni.style.display = "none";
             document.getElementById('takimSecim').style.display = "none";
@@ -420,7 +436,7 @@
                 if (sel && state.sahaTipi && sel.value !== state.sahaTipi) {
                     sel.value = state.sahaTipi;
                 }
-                cizimiGuncelle(state);
+                sonGelenState = state;
             });
         });
 
@@ -482,6 +498,7 @@
             isOfficial = false; 
             menuDiv.style.display = "none"; 
             canvas.style.display = "block"; 
+            resizeCanvas();
             kontrolPaneli.style.display = "block";
             document.getElementById('oyuncuListesi').style.display = "block";
 
@@ -493,7 +510,7 @@
                 buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, 
                 stamina: 100, staminaCooldown: 0 
             };
-            cizimiGuncelle(p2pState);
+            sonGelenState = p2pState;
             
             durumMetni.innerText = "Bağlantı Bekleniyor...";
             document.getElementById('ayarIcerik').innerHTML = `Kurucunun (Host) maçı başlatması bekleniyor...`;
@@ -797,7 +814,7 @@
                         }
                     }
                 }
-                cizimiGuncelle(p2pState); 
+                sonGelenState = p2pState;
                 const statePaketi = JSON.stringify({ type: 'state', data: p2pState });
                 for (let id in channels) { 
                     if (channels[id].readyState === 'open') channels[id].send(statePaketi); 
@@ -897,7 +914,7 @@
                         pozisyonSifirla(kimlik);
                     }
                 } else if (!isHost && mesaj.type === 'state') { 
-                    cizimiGuncelle(mesaj.data); 
+                    sonGelenState = mesaj.data;
                 }
             };
         }
