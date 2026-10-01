@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoPong - WebRTC Final (Yetenekler ve Sprint Eklendi)</title>
+    <title>NeoPong - WebRTC Final (Fizik ve Dayanıklılık)</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #222; font-family: sans-serif; color: white; touch-action: none; }
         #oyunEkrani { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: crosshair; }
@@ -29,7 +29,6 @@
         #btnMobilSut { position: absolute; bottom: 100px; right: 40px; width: 100px; height: 100px; border-radius: 50%; background: rgba(231, 76, 60, 0.6); border: 2px solid rgba(231, 76, 60, 0.8); color: white; font-weight: bold; font-size: 24px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
         #btnMobilSprint { position: absolute; bottom: 110px; right: 160px; width: 80px; height: 80px; border-radius: 50%; background: rgba(46, 204, 113, 0.6); border: 2px solid rgba(46, 204, 113, 0.8); color: white; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
         
-        /* OYUNCU LİSTESİ CSS */
         #oyuncuListesi { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #555; z-index: 50; display: none; min-width: 150px; }
         #oyuncuListesi h3 { margin: 0 0 10px 0; font-size: 16px; color: #f1c40f; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center; }
         #listeIcerik { list-style: none; padding: 0; margin: 0; font-size: 14px; }
@@ -42,7 +41,7 @@
     <div id="uiKatmani">
         <div id="menu">
             <h1 style="font-size: 3em; margin-top: 0;">NeoPong</h1>
-            <p style="color: #aaa;">Ping: <span id="pingYazisi" style="color: white; font-weight: bold;">Ölçülüyor...</span></p>
+            <p style="color: #aaa; display: none;" id="menuPing">Ping: <span id="pingYazisi" style="color: white; font-weight: bold;">Ölçülüyor...</span></p>
             <hr style="width: 400px; border-color: #444; margin: 20px auto;">
             
             <h3>Seçenek A: Merkezi Sunucu</h3>
@@ -93,7 +92,6 @@
         
         const menuDiv = document.getElementById('menu');
         const kontrolPaneli = document.getElementById('kontrolPaneli');
-        const pingYazisi = document.getElementById('pingYazisi');
         const durumMetni = document.getElementById('durum');
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
@@ -101,14 +99,17 @@
         function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resizeCanvas); resizeCanvas();
 
+        let currentPing = 0;
         setInterval(() => { socket.emit('pingCheck', Date.now()); }, 1000);
-        socket.on('pongCheck', (zaman) => { pingYazisi.innerText = (Date.now() - zaman) + " ms"; });
+        socket.on('pongCheck', (zaman) => { currentPing = Date.now() - zaman; });
 
         let myNickname = "Oyuncu";
         window.currentZoom = 1;
 
         function cizimiGuncelle(state) {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.fillStyle = "#2c3e23"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
             let myP = state.players[socket.id];
             let focusX = state.ball.x; let focusY = state.ball.y; let targetZoom = 1;
             
@@ -142,10 +143,11 @@
             if (state.powerups) {
                 for (let pu of state.powerups) {
                     ctx.beginPath(); ctx.arc(pu.x, pu.y, pu.radius, 0, Math.PI * 2);
-                    ctx.fillStyle = pu.type === 'dash' ? '#f1c40f' : '#9b59b6'; ctx.fill();
-                    ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+                    ctx.fillStyle = pu.type === 'dash' ? '#f1c40f' : (pu.type === 'powerShot' ? '#9b59b6' : '#e67e22');
+                    ctx.fill(); ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
                     ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
-                    ctx.fillText(pu.type === 'dash' ? 'HIZ' : 'ŞUT', pu.x, pu.y + 5);
+                    let pText = pu.type === 'dash' ? 'HIZ' : (pu.type === 'powerShot' ? 'ŞUT' : 'ÇEK');
+                    ctx.fillText(pText, pu.x, pu.y + 5);
                 }
             }
 
@@ -155,21 +157,33 @@
             for (let id in state.players) {
                 let p = state.players[id];
                 if (p.team === 'spectator') continue; 
+                
                 if (p.buffs) {
                     if (p.buffs.dashTimer > 0) { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 8, 0, Math.PI*2); ctx.strokeStyle = "rgba(241, 196, 15, 0.8)"; ctx.lineWidth = 4; ctx.stroke(); }
                     if (p.buffs.powerShotReady) { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 12, 0, Math.PI*2); ctx.strokeStyle = "rgba(155, 89, 182, 0.8)"; ctx.lineWidth = 4; ctx.stroke(); }
+                    if (p.buffs.magnetTimer > 0) { ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 16, 0, Math.PI*2); ctx.strokeStyle = "rgba(230, 126, 34, 0.8)"; ctx.lineWidth = 4; ctx.stroke(); }
                 }
+
                 ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
                 ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
                 if (p.inputs.shoot) { ctx.strokeStyle = "white"; ctx.lineWidth = 5; }
                 else if (id === socket.id) { ctx.strokeStyle = "yellow"; ctx.lineWidth = 4; }
                 else { ctx.strokeStyle = "black"; ctx.lineWidth = 2; }
                 ctx.fill(); ctx.stroke();
+                
                 ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center"; ctx.strokeStyle = "black"; ctx.lineWidth = 2;
                 ctx.strokeText(p.nick, p.x, p.y + p.radius + 18); ctx.fillText(p.nick, p.x, p.y + p.radius + 18);
+
+                // Stamina (Dayanıklılık) Barı
+                let st = p.stamina !== undefined ? p.stamina : 100;
+                ctx.fillStyle = "rgba(0,0,0,0.7)"; ctx.fillRect(p.x - 20, p.y + p.radius + 25, 40, 6);
+                ctx.fillStyle = st > 50 ? "#2ecc71" : (st > 20 ? "#f1c40f" : "#e74c3c");
+                ctx.fillRect(p.x - 20, p.y + p.radius + 25, (st / 100) * 40, 6);
+                ctx.strokeStyle = "white"; ctx.lineWidth = 1; ctx.strokeRect(p.x - 20, p.y + p.radius + 25, 40, 6);
             }
             ctx.restore(); 
 
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // UI için matrisi sıfırla
             ctx.fillStyle = "white"; ctx.font = "bold 45px Arial"; ctx.textAlign = "center"; ctx.strokeStyle = "black"; ctx.lineWidth = 4;
             let skorMetni = `${state.score.red} - ${state.score.blue}`;
             ctx.strokeText(skorMetni, canvas.width/2, 60); ctx.fillText(skorMetni, canvas.width/2, 60);
@@ -184,6 +198,10 @@
                 ctx.fillStyle = "white"; ctx.strokeStyle = "black"; ctx.lineWidth = 5; ctx.font = "bold 55px Arial";
                 ctx.strokeText(state.mesaj, canvas.width/2, canvas.height/2); ctx.fillText(state.mesaj, canvas.width/2, canvas.height/2);
             }
+
+            // Sol Alt Köşe Ping Göstergesi
+            ctx.fillStyle = "rgba(255, 255, 255, 0.7)"; ctx.font = "bold 18px Arial"; ctx.textAlign = "left";
+            ctx.fillText(`Ping: ${currentPing} ms`, 20, canvas.height - 20);
 
             document.getElementById('takimSecim').style.display = state.isPlaying ? "none" : "block";
             document.getElementById('ayarlar').style.display = state.isPlaying ? "none" : "block";
@@ -200,19 +218,19 @@
         }
 
         window.addEventListener('keydown', (e) => {
-            if (['w', 'ArrowUp'].includes(e.key)) inputs.up = true;
-            if (['s', 'ArrowDown'].includes(e.key)) inputs.down = true;
-            if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = true;
-            if (['d', 'ArrowRight'].includes(e.key)) inputs.right = true;
+            if (['w', 'W', 'ArrowUp'].includes(e.key)) inputs.up = true;
+            if (['s', 'S', 'ArrowDown'].includes(e.key)) inputs.down = true;
+            if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = true;
+            if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = true;
             if (e.key === ' ') inputs.shoot = true; 
             if (e.key === 'Shift') inputs.sprint = true;
             veriGonder();
         });
         window.addEventListener('keyup', (e) => {
-            if (['w', 'ArrowUp'].includes(e.key)) inputs.up = false;
-            if (['s', 'ArrowDown'].includes(e.key)) inputs.down = false;
-            if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = false;
-            if (['d', 'ArrowRight'].includes(e.key)) inputs.right = false;
+            if (['w', 'W', 'ArrowUp'].includes(e.key)) inputs.up = false;
+            if (['s', 'S', 'ArrowDown'].includes(e.key)) inputs.down = false;
+            if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = false;
+            if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = false;
             if (e.key === ' ') inputs.shoot = false;
             if (e.key === 'Shift') inputs.sprint = false;
             veriGonder();
@@ -281,7 +299,6 @@
             if (isHost && p2pState.isPlaying) bitirOyun("HOST MAÇI SONLANDIRDI!");
         });
 
-        // ODADAN ÇIKIŞ FONKSİYONU
         document.getElementById('btnOdadanCik').addEventListener('click', () => {
             socket.emit('leave-room');
             location.reload(); 
@@ -291,7 +308,6 @@
         const peers = {}, channels = {}, iceKuyruklari = {};
         let hostConnection = null, hostChannel = null, clientIceKuyrugu = [];
         
-        // --- TURN SUNUCUSU ENTEGRASYONU ---
         const rtcConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -321,14 +337,13 @@
             document.getElementById('oyuncuListesi').style.display = "block";
 
             socket.emit('join-p2p', { roomId: oda, nick: myNickname }); 
-            p2pState.players[socket.id] = { x: -100, y: -100, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: myNickname, inputs: { up:false, down:false, left:false, right:false, shoot:false, sprint:false }, buffs: { dashTimer: 0, powerShotReady: false } };
+            p2pState.players[socket.id] = { x: -100, y: -100, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: myNickname, inputs: { up:false, down:false, left:false, right:false, shoot:false, sprint:false }, buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, stamina: 100 };
             cizimiGuncelle(p2pState);
             
             durumMetni.innerText = "Bağlantı Bekleniyor...";
             document.getElementById('ayarIcerik').innerHTML = `Kurucunun (Host) maçı başlatması bekleniyor...`;
         });
 
-        // YENİ HOST ETKİNLİĞİ: Kurucu düştüğünde sıradakini host yapar
         socket.on('host-assigned', () => {
             isHost = true; isClient = false;
             startHostLoop();
@@ -336,7 +351,6 @@
             durumMetni.style.display = "block";
         });
 
-        // ODA DURUMU VE OYUNCU LİSTESİ
         socket.on('room-joined', (data) => {
             isHost = data.isHost;
             if (isHost) { startHostLoop(); } else { isClient = true; }
@@ -374,7 +388,7 @@
         }
 
         function pozisyonSifirla(id) {
-            let p = p2pState.players[id]; p.vx = 0; p.vy = 0; p.buffs = { dashTimer: 0, powerShotReady: false };
+            let p = p2pState.players[id]; p.vx = 0; p.vy = 0; p.buffs = { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }; p.stamina = 100;
             if (p.team === 'red' || p.team === 'blue') {
                 let index = 0;
                 for (let k in p2pState.players) { if (k === id) break; if (p2pState.players[k].team === p.team) index++; }
@@ -399,36 +413,72 @@
                 if (p2pState.isPlaying && !oyunBeklemede) {
                     frameCount++;
                     if (frameCount >= 60) { frameCount = 0; p2pState.kalanSure--; if (p2pState.kalanSure <= 0) bitirOyun(); }
+                    
                     if (Math.random() < 0.002 && p2pState.powerups.length < 3) {
-                        p2pState.powerups.push({ id: Math.random().toString(), x: Math.random() * (p2pState.sahaW - 100) + 50, y: Math.random() * (p2pState.sahaH - 100) + 50, type: Math.random() < 0.5 ? 'dash' : 'powerShot', radius: 15 });
+                        let rand = Math.random();
+                        let pType = rand < 0.40 ? 'dash' : (rand < 0.75 ? 'powerShot' : 'magnet');
+                        p2pState.powerups.push({ id: Math.random().toString(), x: Math.random() * (p2pState.sahaW - 100) + 50, y: Math.random() * (p2pState.sahaH - 100) + 50, type: pType, radius: 15 });
                     }
+
                     for (let id in p2pState.players) {
                         let p = p2pState.players[id]; if (p.team === 'spectator') continue; 
+                        if (typeof p.stamina === 'undefined') p.stamina = 100;
                         if (p.buffs && p.buffs.dashTimer > 0) p.buffs.dashTimer--;
-                        let ivme = 0.3; if (p.inputs.sprint) ivme = 0.55; if (p.buffs && p.buffs.dashTimer > 0) ivme *= 1.8;
+                        
+                        let ivme = 0.3; 
+                        if (p.inputs.sprint && p.stamina > 0) { 
+                            ivme = 0.55; 
+                            p.stamina -= 1.5; 
+                            if (p.stamina < 0) p.stamina = 0; 
+                        } else {
+                            if (p.stamina < 100) p.stamina += 0.5;
+                        }
+                        if (p.buffs && p.buffs.dashTimer > 0) ivme *= 1.8;
+                        
                         if (p.inputs.up) p.vy -= ivme; if (p.inputs.down) p.vy += ivme; if (p.inputs.left) p.vx -= ivme; if (p.inputs.right) p.vx += ivme;
                         p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx; p.y += p.vy;
+                        
                         let pad = 200; if (p.x < -pad) p.x = -pad; if (p.x > p2pState.sahaW + pad) p.x = p2pState.sahaW + pad; if (p.y < -pad) p.y = -pad; if (p.y > p2pState.sahaH + pad) p.y = p2pState.sahaH + pad;
+                        
                         for (let i = p2pState.powerups.length - 1; i >= 0; i--) {
                             let pu = p2pState.powerups[i]; let puDist = Math.hypot(pu.x - p.x, pu.y - p.y);
                             if (puDist < p.radius + pu.radius) {
-                                if (!p.buffs) p.buffs = { dashTimer: 0, powerShotReady: false };
-                                if (pu.type === 'dash') p.buffs.dashTimer = 300; if (pu.type === 'powerShot') p.buffs.powerShotReady = true;
+                                if (!p.buffs) p.buffs = { dashTimer: 0, powerShotReady: false, magnetTimer: 0 };
+                                if (pu.type === 'dash') p.buffs.dashTimer = 300; 
+                                if (pu.type === 'powerShot') p.buffs.powerShotReady = true;
+                                if (pu.type === 'magnet') p.buffs.magnetTimer = 180;
                                 p2pState.powerups.splice(i, 1);
                             }
                         }
-                        let dx = p2pState.ball.x - p.x; let dy = p2pState.ball.y - p.y; let mesafe = Math.sqrt(dx * dx + dy * dy); let temasMesafesi = p.radius + p2pState.ball.radius; let magnetMenzil = temasMesafesi + 30; 
-                        if (mesafe < temasMesafesi) {
-                            let overlap = temasMesafesi - mesafe; let aci = Math.atan2(dy, dx);
-                            p2pState.ball.x += Math.cos(aci) * overlap; p2pState.ball.y += Math.sin(aci) * overlap; p2pState.ball.vx += Math.cos(aci) * 0.3; p2pState.ball.vy += Math.sin(aci) * 0.3;
-                        } else if (mesafe < magnetMenzil) {
-                            let aci = Math.atan2(dy, dx); let cekimGucu = (magnetMenzil - mesafe) * 0.0012; p2pState.ball.vx -= Math.cos(aci) * cekimGucu; p2pState.ball.vy -= Math.sin(aci) * cekimGucu;
+
+                        if (p.buffs && p.buffs.magnetTimer > 0) {
+                            p.buffs.magnetTimer--;
+                            let mDx = p.x - p2pState.ball.x;
+                            let mDy = p.y - p2pState.ball.y;
+                            let mDist = Math.hypot(mDx, mDy);
+                            if (mDist > 0) {
+                                p2pState.ball.vx += (mDx / mDist) * 1.5;
+                                p2pState.ball.vy += (mDy / mDist) * 1.5;
+                            }
                         }
+
+                        let dx = p2pState.ball.x - p.x; let dy = p2pState.ball.y - p.y; 
+                        let mesafe = Math.sqrt(dx * dx + dy * dy); let temasMesafesi = p.radius + p2pState.ball.radius; 
+                        
+                        if (mesafe < temasMesafesi) {
+                            let overlap = temasMesafesi - mesafe; let nx = dx / mesafe; let ny = dy / mesafe;
+                            p2pState.ball.x += nx * overlap; p2pState.ball.y += ny * overlap; 
+                            p2pState.ball.vx += nx * 0.5; p2pState.ball.vy += ny * 0.5;
+                        } else if (mesafe < temasMesafesi + 8) {
+                            p2pState.ball.vx *= 0.85; p2pState.ball.vy *= 0.85;
+                        }
+
                         if (p.inputs.shoot && mesafe < temasMesafesi + 4) {
                             let aci = Math.atan2(dy, dx); let vurusHizi = 5.5; if (p.buffs && p.buffs.powerShotReady) { vurusHizi = 12.0; p.buffs.powerShotReady = false; }
                             p2pState.ball.vx += Math.cos(aci) * vurusHizi; p2pState.ball.vy += Math.sin(aci) * vurusHizi;
                         }
                     }
+
                     let pIds = Object.keys(p2pState.players).filter(id => p2pState.players[id].team !== 'spectator');
                     for (let i = 0; i < pIds.length; i++) {
                         for (let j = i + 1; j < pIds.length; j++) {
@@ -440,10 +490,12 @@
                             }
                         }
                     }
+
                     p2pState.ball.x += p2pState.ball.vx; p2pState.ball.y += p2pState.ball.vy; p2pState.ball.vx *= 0.97; p2pState.ball.vy *= 0.97;
                     let kaleUst = (p2pState.sahaH / 2) - (p2pState.kaleBoyutu / 2); let kaleAlt = (p2pState.sahaH / 2) + (p2pState.kaleBoyutu / 2);
                     if (p2pState.ball.y < p2pState.ball.radius) { p2pState.ball.vy *= -1; p2pState.ball.y = p2pState.ball.radius; }
                     if (p2pState.ball.y > p2pState.sahaH - p2pState.ball.radius) { p2pState.ball.vy *= -1; p2pState.ball.y = p2pState.sahaH - p2pState.ball.radius; }
+                    
                     if (p2pState.ball.y > kaleUst && p2pState.ball.y < kaleAlt) {
                         if (p2pState.ball.x < 0 && !oyunBeklemede) {
                             p2pState.score.blue++; p2pState.mesaj = "MAVİ TAKIM GOL ATTI!"; oyunBeklemede = true;
@@ -459,7 +511,11 @@
                 } else if (!p2pState.isPlaying) {
                     for (let id in p2pState.players) {
                         let p = p2pState.players[id]; if (p.team !== 'spectator') {
-                            let ivme = 0.3; if (p.inputs.sprint) ivme = 0.55;
+                            if (typeof p.stamina === 'undefined') p.stamina = 100;
+                            let ivme = 0.3; 
+                            if (p.inputs.sprint && p.stamina > 0) { ivme = 0.55; p.stamina -= 1.5; if (p.stamina < 0) p.stamina = 0; } 
+                            else { if (p.stamina < 100) p.stamina += 0.5; }
+                            
                             if (p.inputs.up) p.vy -= ivme; if (p.inputs.down) p.vy += ivme; if (p.inputs.left) p.vx -= ivme; if (p.inputs.right) p.vx += ivme;
                             p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx; p.y += p.vy;
                         }
@@ -474,7 +530,7 @@
             if (!isHost) return; 
             if (Object.keys(p2pState.players).length >= MAX_OYUNCU) return; 
             
-            p2pState.players[yeniOyuncuId] = { x: -1000, y: -1000, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: "Bağlanıyor...", inputs: { up:false, down:false, left:false, right:false, shoot:false, sprint:false }, buffs: { dashTimer: 0, powerShotReady: false } };
+            p2pState.players[yeniOyuncuId] = { x: -1000, y: -1000, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: "Bağlanıyor...", inputs: { up:false, down:false, left:false, right:false, shoot:false, sprint:false }, buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, stamina: 100 };
 
             const pc = new RTCPeerConnection(rtcConfig); peers[yeniOyuncuId] = pc; iceKuyruklari[yeniOyuncuId] = [];
             const dc = pc.createDataChannel("oyunTuneli"); channels[yeniOyuncuId] = dc; veriKanaliniAyarla(dc, yeniOyuncuId);
@@ -484,7 +540,6 @@
             socket.emit('signal', { to: yeniOyuncuId, signal: { type: 'offer', sdp: pc.localDescription } });
         });
 
-        // Oyuncu koptuğunda Host p2pState içerisinden de silmeli
         socket.on('user-disconnected', (kopanId) => {
             if (peers[kopanId]) { peers[kopanId].close(); delete peers[kopanId]; }
             if (channels[kopanId]) { channels[kopanId].close(); delete channels[kopanId]; }
