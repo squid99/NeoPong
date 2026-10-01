@@ -108,10 +108,15 @@
 
         let myNickname = "Oyuncu";
         window.currentZoom = 1;
+        let sonGelenState = null;
 
         function cizimiGuncelle(state) {
-            if (!state || !state.ball) return;
-            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) resizeCanvas();
+            if (!state || !state.ball || !state.sahaW) return;
+            sonGelenState = state;
+
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                resizeCanvas();
+            }
 
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.fillStyle = "#2c3e23";
@@ -228,7 +233,8 @@
                     ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
                     ctx.fill();
 
-                    if (p.inputs && p.inputs.shoot) { 
+                    // ŞARJ HALKASI: Tuşa basılı tutarken (chargeShoot) veya şut anında (shoot) yanar
+                    if (p.inputs && (p.inputs.chargeShoot || p.inputs.shoot)) { 
                         ctx.strokeStyle = "white"; 
                         ctx.lineWidth = 4; 
                     } else if (id === socket.id) { 
@@ -291,7 +297,14 @@
             ctx.fillText(`Ping: ${currentPing} ms`, 20, canvas.height - 20);
         }
 
-        const inputs = { up: false, down: false, left: false, right: false, shoot: false, sprint: false };
+        function renderLoop() {
+            if (sonGelenState) cizimiGuncelle(sonGelenState);
+            requestAnimationFrame(renderLoop);
+        }
+        requestAnimationFrame(renderLoop);
+
+        // YENİ GİRDİ SİSTEMİ (chargeShoot eklendi)
+        const inputs = { up: false, down: false, left: false, right: false, chargeShoot: false, shoot: false, sprint: false };
         let isOfficial = false;
 
         function veriGonder() {
@@ -305,12 +318,13 @@
         }
 
         function triggerShoot() {
+            inputs.chargeShoot = false;
             inputs.shoot = true;
             veriGonder();
             setTimeout(() => {
                 inputs.shoot = false;
                 veriGonder();
-            }, 60);
+            }, 60); // 60ms içinde şut komutu işlenir
         }
 
         window.addEventListener('keydown', (e) => {
@@ -319,6 +333,7 @@
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = true;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = true;
             if (e.key === 'Shift') inputs.sprint = true;
+            if (e.key === ' ' && !inputs.chargeShoot) { inputs.chargeShoot = true; } // Basılı tutarken şarj
             veriGonder();
         });
 
@@ -328,12 +343,16 @@
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = false;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = false;
             if (e.key === 'Shift') inputs.sprint = false;
-            if (e.key === ' ') triggerShoot();
+            if (e.key === ' ') { triggerShoot(); return; } // Çekince Şut At
             veriGonder();
         });
 
+        window.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && !inputs.chargeShoot) { inputs.chargeShoot = true; veriGonder(); }
+        });
+
         window.addEventListener('mouseup', (e) => {
-            if (e.button === 0) triggerShoot();
+            if (e.button === 0) { triggerShoot(); }
         });
 
         const mobilKontroller = document.getElementById('mobilKontroller');
@@ -345,7 +364,10 @@
 
         if ('ontouchstart' in window || navigator.maxTouchPoints > 0) mobilKontroller.style.display = 'block';
 
+        btnMobilSut.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.chargeShoot = true; veriGonder(); }, {passive: false});
         btnMobilSut.addEventListener('touchend', (e) => { e.preventDefault(); triggerShoot(); }, {passive: false});
+        btnMobilSut.addEventListener('touchcancel', (e) => { e.preventDefault(); triggerShoot(); }, {passive: false});
+        
         btnMobilSprint.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.sprint = true; veriGonder(); }, {passive: false});
         btnMobilSprint.addEventListener('touchend', (e) => { e.preventDefault(); inputs.sprint = false; veriGonder(); }, {passive: false});
         btnMobilSprint.addEventListener('touchcancel', (e) => { e.preventDefault(); inputs.sprint = false; veriGonder(); }, {passive: false});
@@ -387,7 +409,6 @@
         document.getElementById('btnIzleyici').addEventListener('click', () => takimDegistir('spectator'));
         document.getElementById('btnMavi').addEventListener('click', () => takimDegistir('blue'));
 
-        // YALIN RESMİ SUNUCU BAĞLANTISI
         document.getElementById('btnResmi').addEventListener('click', () => {
             isOfficial = true; 
             menuDiv.style.display = "none"; 
@@ -395,16 +416,12 @@
             resizeCanvas();
             kontrolPaneli.style.display = "block";
             durumMetni.style.display = "none";
-            
-            // Resmi sunucuda sadece çıkış butonu görünür, ayar menüsü olmaz
             document.getElementById('takimSecim').style.display = "none";
             document.getElementById('ayarlar').style.display = "none";
             document.getElementById('btnMacBitir').style.display = "none";
 
             socket.emit('join-official'); 
-            socket.on('oyunDurumu', (state) => {
-                cizimiGuncelle(state);
-            });
+            socket.on('oyunDurumu', (state) => { sonGelenState = state; });
         });
 
         document.getElementById('btnMacBitir').addEventListener('click', () => {
@@ -435,26 +452,8 @@
             ]
         };
 
-        const SAHALAR = { 
-            'kucuk': { w: 900, h: 500, goal: 150 }, 
-            'orta': { w: 1400, h: 800, goal: 200 }, 
-            'buyuk': { w: 2000, h: 1200, goal: 300 }, 
-            'anasininki': { w: 4000, h: 2500, goal: 500 } 
-        };
-        
-        let p2pState = { 
-            players: {}, 
-            ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, 
-            score: { red: 0, blue: 0 }, 
-            mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", 
-            isPlaying: false, 
-            skorSiniri: 3, 
-            kalanSure: 180, 
-            sahaW: 1400, 
-            sahaH: 800, 
-            kaleBoyutu: 200, 
-            powerups: [] 
-        };
+        const SAHALAR = { 'kucuk': { w: 900, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
+        let p2pState = { players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [] };
         let gameLoopActif = false, oyunBeklemede = false, frameCount = 0;
 
         document.getElementById('btnP2P').addEventListener('click', () => {
@@ -474,11 +473,11 @@
             p2pState.players[socket.id] = { 
                 x: -100, y: -100, vx: 0, vy: 0, radius: 20, 
                 team: 'spectator', nick: myNickname, 
-                inputs: { up:false, down:false, left:false, right:false, shoot:false, sprint:false }, 
+                inputs: { up:false, down:false, left:false, right:false, chargeShoot:false, shoot:false, sprint:false }, 
                 buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, 
                 stamina: 100, staminaCooldown: 0 
             };
-            cizimiGuncelle(p2pState);
+            sonGelenState = p2pState;
             
             durumMetni.innerText = "Bağlantı Bekleniyor...";
             document.getElementById('ayarIcerik').innerHTML = `Kurucunun (Host) maçı başlatması bekleniyor...`;
@@ -676,8 +675,11 @@
                             p.x -= nx * (overlap * 0.3);
                             p.y -= ny * (overlap * 0.3);
 
-                            p2pState.ball.vx += nx * 0.4; 
-                            p2pState.ball.vy += ny * 0.4;
+                            p2pState.ball.vx += nx * 0.15; 
+                            p2pState.ball.vy += ny * 0.15;
+                        } else if (mesafe < temasMesafesi + 12) {
+                            p2pState.ball.vx *= 0.6; 
+                            p2pState.ball.vy *= 0.6;
                         }
 
                         if (p.inputs.shoot && mesafe < temasMesafesi + 8) {
@@ -716,8 +718,11 @@
 
                     p2pState.ball.x += p2pState.ball.vx; 
                     p2pState.ball.y += p2pState.ball.vy; 
-                    p2pState.ball.vx *= 0.985; 
-                    p2pState.ball.vy *= 0.985;
+                    
+                    p2pState.ball.vx *= 0.96; 
+                    p2pState.ball.vy *= 0.96;
+                    if (Math.abs(p2pState.ball.vx) < 0.1) p2pState.ball.vx = 0;
+                    if (Math.abs(p2pState.ball.vy) < 0.1) p2pState.ball.vy = 0;
 
                     let kaleUst = (p2pState.sahaH / 2) - (p2pState.kaleBoyutu / 2); 
                     let kaleAlt = (p2pState.sahaH / 2) + (p2pState.kaleBoyutu / 2);
@@ -782,7 +787,7 @@
                         }
                     }
                 }
-                cizimiGuncelle(p2pState); 
+                sonGelenState = p2pState;
                 const statePaketi = JSON.stringify({ type: 'state', data: p2pState });
                 for (let id in channels) { 
                     if (channels[id].readyState === 'open') channels[id].send(statePaketi); 
@@ -797,7 +802,7 @@
             p2pState.players[yeniOyuncuId] = { 
                 x: -1000, y: -1000, vx: 0, vy: 0, radius: 20, 
                 team: 'spectator', nick: "Bağlanıyor...", 
-                inputs: { up:false, down:false, left:false, right:false, shoot:false, sprint:false }, 
+                inputs: { up:false, down:false, left:false, right:false, chargeShoot:false, shoot:false, sprint:false }, 
                 buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, 
                 stamina: 100, staminaCooldown: 0 
             };
@@ -882,7 +887,7 @@
                         pozisyonSifirla(kimlik);
                     }
                 } else if (!isHost && mesaj.type === 'state') { 
-                    cizimiGuncelle(mesaj.data); 
+                    sonGelenState = mesaj.data;
                 }
             };
         }
