@@ -108,15 +108,10 @@
 
         let myNickname = "Oyuncu";
         window.currentZoom = 1;
-        let sonGelenState = null;
 
         function cizimiGuncelle(state) {
-            if (!state || !state.ball || !state.sahaW) return;
-            sonGelenState = state;
-
-            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
-                resizeCanvas();
-            }
+            if (!state || !state.ball) return;
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) resizeCanvas();
 
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.fillStyle = "#2c3e23";
@@ -142,7 +137,6 @@
             ctx.scale(window.currentZoom, window.currentZoom);
             ctx.translate(-focusX, -focusY);
 
-            // Saha Zemin Çizimi
             ctx.fillStyle = "#4a6b3d"; 
             ctx.fillRect(0, 0, state.sahaW, state.sahaH);
             ctx.fillStyle = "#527543"; 
@@ -166,7 +160,6 @@
             let kaleUst = (state.sahaH / 2) - (state.kaleBoyutu / 2);
             let kaleAlt = (state.sahaH / 2) + (state.kaleBoyutu / 2);
 
-            // Kaleler
             ctx.fillStyle = "rgba(231, 76, 60, 0.4)"; 
             ctx.fillRect(-45, kaleUst, 45, state.kaleBoyutu);
             ctx.strokeStyle = "rgba(231, 76, 60, 0.9)";
@@ -202,7 +195,6 @@
                 }
             }
 
-            // Top
             ctx.beginPath(); 
             ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
             ctx.fillStyle = "white"; 
@@ -211,7 +203,6 @@
             ctx.lineWidth = 2; 
             ctx.stroke();
 
-            // Oyuncular
             if (state.players) {
                 for (let id in state.players) {
                     let p = state.players[id];
@@ -241,7 +232,7 @@
                         ctx.strokeStyle = "white"; 
                         ctx.lineWidth = 4; 
                     } else if (id === socket.id) { 
-                        ctx.strokeStyle = "rgba(200, 200, 200, 0.75)"; 
+                        ctx.strokeStyle = "rgba(200, 200, 200, 0.6)"; 
                         ctx.lineWidth = 2;
                     } else { 
                         ctx.strokeStyle = "black"; 
@@ -299,15 +290,6 @@
             ctx.textAlign = "left";
             ctx.fillText(`Ping: ${currentPing} ms`, 20, canvas.height - 20);
         }
-
-        // Çizim akışı (render loop)
-        function renderLoop() {
-            if (sonGelenState) {
-                cizimiGuncelle(sonGelenState);
-            }
-            requestAnimationFrame(renderLoop);
-        }
-        requestAnimationFrame(renderLoop);
 
         const inputs = { up: false, down: false, left: false, right: false, shoot: false, sprint: false };
         let isOfficial = false;
@@ -405,7 +387,7 @@
         document.getElementById('btnIzleyici').addEventListener('click', () => takimDegistir('spectator'));
         document.getElementById('btnMavi').addEventListener('click', () => takimDegistir('blue'));
 
-        // RESMİ SUNUCU BAĞLANTISI
+        // YALIN RESMİ SUNUCU BAĞLANTISI
         document.getElementById('btnResmi').addEventListener('click', () => {
             isOfficial = true; 
             menuDiv.style.display = "none"; 
@@ -413,30 +395,15 @@
             resizeCanvas();
             kontrolPaneli.style.display = "block";
             durumMetni.style.display = "none";
-            document.getElementById('takimSecim').style.display = "none";
-            document.getElementById('ayarlar').style.display = "block";
             
-            document.getElementById('ayarIcerik').innerHTML = `
-                <label>Resmi Sunucu Saha Boyutu: 
-                    <select id="resmiSahaSecimi" style="padding: 5px;">
-                        <option value="kucuk">Küçük</option>
-                        <option value="orta" selected>Orta</option>
-                        <option value="buyuk">Büyük</option>
-                        <option value="anasininki">Anasınınki</option>
-                    </select>
-                </label>
-            `;
-            document.getElementById('resmiSahaSecimi').addEventListener('change', (e) => {
-                socket.emit('change-official-map', e.target.value);
-            });
+            // Resmi sunucuda sadece çıkış butonu görünür, ayar menüsü olmaz
+            document.getElementById('takimSecim').style.display = "none";
+            document.getElementById('ayarlar').style.display = "none";
+            document.getElementById('btnMacBitir').style.display = "none";
 
             socket.emit('join-official'); 
             socket.on('oyunDurumu', (state) => {
-                let sel = document.getElementById('resmiSahaSecimi');
-                if (sel && state.sahaTipi && sel.value !== state.sahaTipi) {
-                    sel.value = state.sahaTipi;
-                }
-                sonGelenState = state;
+                cizimiGuncelle(state);
             });
         });
 
@@ -501,6 +468,7 @@
             resizeCanvas();
             kontrolPaneli.style.display = "block";
             document.getElementById('oyuncuListesi').style.display = "block";
+            document.getElementById('ayarlar').style.display = "block";
 
             socket.emit('join-p2p', { roomId: oda, nick: myNickname }); 
             p2pState.players[socket.id] = { 
@@ -510,7 +478,7 @@
                 buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, 
                 stamina: 100, staminaCooldown: 0 
             };
-            sonGelenState = p2pState;
+            cizimiGuncelle(p2pState);
             
             durumMetni.innerText = "Bağlantı Bekleniyor...";
             document.getElementById('ayarIcerik').innerHTML = `Kurucunun (Host) maçı başlatması bekleniyor...`;
@@ -814,7 +782,7 @@
                         }
                     }
                 }
-                sonGelenState = p2pState;
+                cizimiGuncelle(p2pState); 
                 const statePaketi = JSON.stringify({ type: 'state', data: p2pState });
                 for (let id in channels) { 
                     if (channels[id].readyState === 'open') channels[id].send(statePaketi); 
@@ -914,7 +882,7 @@
                         pozisyonSifirla(kimlik);
                     }
                 } else if (!isHost && mesaj.type === 'state') { 
-                    sonGelenState = mesaj.data;
+                    cizimiGuncelle(mesaj.data); 
                 }
             };
         }
