@@ -233,7 +233,8 @@
                     ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
                     ctx.fill();
 
-                    if (p.inputs && (p.inputs.chargeShoot || p.inputs.shoot)) { 
+                    // ŞARJ HALKASI: Space'e basılı tutulduğunda yanar
+                    if (p.inputs && p.inputs.chargeShoot) { 
                         ctx.strokeStyle = "white"; 
                         ctx.lineWidth = 4; 
                     } else if (id === socket.id) { 
@@ -302,7 +303,8 @@
         }
         requestAnimationFrame(renderLoop);
 
-        const inputs = { up: false, down: false, left: false, right: false, chargeShoot: false, shoot: false, sprint: false };
+        // YENİ ŞUT MANTIĞI: Sadece chargeShoot (Basılı Tut) gönderilecek
+        const inputs = { up: false, down: false, left: false, right: false, chargeShoot: false, sprint: false };
         let isOfficial = false;
 
         function veriGonder() {
@@ -315,23 +317,13 @@
             }
         }
 
-        function triggerShoot() {
-            inputs.chargeShoot = false;
-            inputs.shoot = true;
-            veriGonder();
-            setTimeout(() => {
-                inputs.shoot = false;
-                veriGonder();
-            }, 60);
-        }
-
         window.addEventListener('keydown', (e) => {
             if (['w', 'W', 'ArrowUp'].includes(e.key)) inputs.up = true;
             if (['s', 'S', 'ArrowDown'].includes(e.key)) inputs.down = true;
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = true;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = true;
             if (e.key === 'Shift') inputs.sprint = true;
-            if (e.key === ' ' && !inputs.chargeShoot) { inputs.chargeShoot = true; } 
+            if (e.key === ' ') inputs.chargeShoot = true; // Şarjı Başlat
             veriGonder();
         });
 
@@ -341,16 +333,16 @@
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = false;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = false;
             if (e.key === 'Shift') inputs.sprint = false;
-            if (e.key === ' ') { triggerShoot(); return; } 
+            if (e.key === ' ') inputs.chargeShoot = false; // Şarjı Kapat
             veriGonder();
         });
 
         window.addEventListener('mousedown', (e) => {
-            if (e.button === 0 && !inputs.chargeShoot) { inputs.chargeShoot = true; veriGonder(); }
+            if (e.button === 0) { inputs.chargeShoot = true; veriGonder(); }
         });
 
         window.addEventListener('mouseup', (e) => {
-            if (e.button === 0) { triggerShoot(); }
+            if (e.button === 0) { inputs.chargeShoot = false; veriGonder(); }
         });
 
         const mobilKontroller = document.getElementById('mobilKontroller');
@@ -363,8 +355,8 @@
         if ('ontouchstart' in window || navigator.maxTouchPoints > 0) mobilKontroller.style.display = 'block';
 
         btnMobilSut.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.chargeShoot = true; veriGonder(); }, {passive: false});
-        btnMobilSut.addEventListener('touchend', (e) => { e.preventDefault(); triggerShoot(); }, {passive: false});
-        btnMobilSut.addEventListener('touchcancel', (e) => { e.preventDefault(); triggerShoot(); }, {passive: false});
+        btnMobilSut.addEventListener('touchend', (e) => { e.preventDefault(); inputs.chargeShoot = false; veriGonder(); }, {passive: false});
+        btnMobilSut.addEventListener('touchcancel', (e) => { e.preventDefault(); inputs.chargeShoot = false; veriGonder(); }, {passive: false});
         
         btnMobilSprint.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.sprint = true; veriGonder(); }, {passive: false});
         btnMobilSprint.addEventListener('touchend', (e) => { e.preventDefault(); inputs.sprint = false; veriGonder(); }, {passive: false});
@@ -453,26 +445,8 @@
             ]
         };
 
-        const SAHALAR = { 
-            'kucuk': { w: 900, h: 500, goal: 150 }, 
-            'orta': { w: 1400, h: 800, goal: 200 }, 
-            'buyuk': { w: 2000, h: 1200, goal: 300 }, 
-            'anasininki': { w: 4000, h: 2500, goal: 500 } 
-        };
-        
-        let p2pState = { 
-            players: {}, 
-            ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, 
-            score: { red: 0, blue: 0 }, 
-            mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", 
-            isPlaying: false, 
-            skorSiniri: 3, 
-            kalanSure: 180, 
-            sahaW: 1400, 
-            sahaH: 800, 
-            kaleBoyutu: 200, 
-            powerups: [] 
-        };
+        const SAHALAR = { 'kucuk': { w: 900, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
+        let p2pState = { players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [] };
         let gameLoopActif = false, oyunBeklemede = false, frameCount = 0;
 
         document.getElementById('btnP2P').addEventListener('click', () => {
@@ -492,9 +466,9 @@
             p2pState.players[socket.id] = { 
                 x: -100, y: -100, vx: 0, vy: 0, radius: 20, 
                 team: 'spectator', nick: myNickname, 
-                inputs: { up:false, down:false, left:false, right:false, chargeShoot:false, shoot:false, sprint:false }, 
+                inputs: { up:false, down:false, left:false, right:false, chargeShoot:false, sprint:false }, 
                 buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, 
-                stamina: 100, staminaCooldown: 0 
+                stamina: 100, staminaCooldown: 0, hasShot: false
             };
             sonGelenState = p2pState;
             
@@ -556,7 +530,7 @@
             let p = p2pState.players[id]; 
             p.vx = 0; p.vy = 0; 
             p.buffs = { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }; 
-            p.stamina = 100; p.staminaCooldown = 0;
+            p.stamina = 100; p.staminaCooldown = 0; p.hasShot = false;
             if (p.team === 'red' || p.team === 'blue') {
                 let index = 0;
                 for (let k in p2pState.players) { 
@@ -628,7 +602,7 @@
                     for (let id in p2pState.players) {
                         let p = p2pState.players[id]; 
                         if (p.team === 'spectator') continue; 
-                        if (typeof p.stamina === 'undefined') { p.stamina = 100; p.staminaCooldown = 0; }
+                        if (typeof p.stamina === 'undefined') { p.stamina = 100; p.staminaCooldown = 0; p.hasShot = false; }
                         if (p.buffs && p.buffs.dashTimer > 0) p.buffs.dashTimer--;
                         
                         let ivme = 0.3; 
@@ -674,10 +648,12 @@
                             let mDy = p.y - p2pState.ball.y;
                             let mDist = Math.hypot(mDx, mDy);
                             if (mDist > 0) {
-                                p2pState.ball.vx += (mDx / mDist) * 0.35;
-                                p2pState.ball.vy += (mDy / mDist) * 0.35;
+                                p2pState.ball.vx += (mDx / mDist) * 0.4;
+                                p2pState.ball.vy += (mDy / mDist) * 0.4;
                             }
                         }
+
+                        if (!p.inputs.chargeShoot) p.hasShot = false;
 
                         let dx = p2pState.ball.x - p.x; 
                         let dy = p2pState.ball.y - p.y; 
@@ -694,23 +670,29 @@
                             p.x -= nx * (overlap * 0.3);
                             p.y -= ny * (overlap * 0.3);
 
-                            p2pState.ball.vx += nx * 0.6; 
-                            p2pState.ball.vy += ny * 0.6;
-                        } else if (mesafe < temasMesafesi + 10) {
-                            p2pState.ball.vx *= 0.92; 
-                            p2pState.ball.vy *= 0.92;
+                            p2pState.ball.vx += nx * 0.5; 
+                            p2pState.ball.vy += ny * 0.5;
+
+                            let bSpeed = Math.hypot(p2pState.ball.vx, p2pState.ball.vy);
+                            let pSpeed = Math.hypot(p.vx, p.vy);
+                            let maxDribbleSpeed = Math.max(pSpeed + 1.5, 3.0);
+                            
+                            if (!p.hasShot && bSpeed > maxDribbleSpeed) {
+                                p2pState.ball.vx = (p2pState.ball.vx / bSpeed) * maxDribbleSpeed;
+                                p2pState.ball.vy = (p2pState.ball.vy / bSpeed) * maxDribbleSpeed;
+                            }
                         }
 
-                        if (p.inputs.shoot && mesafe < temasMesafesi + 12) {
+                        if (p.inputs.chargeShoot && !p.hasShot && mesafe < temasMesafesi + 10) {
                             let aci = Math.atan2(dy, dx); 
-                            let vurusHizi = 8.0; 
+                            let vurusHizi = 12.0; 
                             if (p.buffs && p.buffs.powerShotReady) { 
-                                vurusHizi = 15.0; 
+                                vurusHizi = 18.0; 
                                 p.buffs.powerShotReady = false; 
                             }
-                            p2pState.ball.vx += Math.cos(aci) * vurusHizi; 
-                            p2pState.ball.vy += Math.sin(aci) * vurusHizi;
-                            p.inputs.shoot = false;
+                            p2pState.ball.vx = Math.cos(aci) * vurusHizi; 
+                            p2pState.ball.vy = Math.sin(aci) * vurusHizi;
+                            p.hasShot = true;
                         }
                     }
 
@@ -738,8 +720,8 @@
                     p2pState.ball.x += p2pState.ball.vx; 
                     p2pState.ball.y += p2pState.ball.vy; 
                     
-                    p2pState.ball.vx *= 0.98; 
-                    p2pState.ball.vy *= 0.98;
+                    p2pState.ball.vx *= 0.95; 
+                    p2pState.ball.vy *= 0.95;
                     if (Math.abs(p2pState.ball.vx) < 0.05) p2pState.ball.vx = 0;
                     if (Math.abs(p2pState.ball.vy) < 0.05) p2pState.ball.vy = 0;
 
@@ -766,7 +748,7 @@
                             }, 3000);
                         } else if (p2pState.ball.x > p2pState.sahaW + p2pState.ball.radius && !oyunBeklemede) {
                             p2pState.score.red++; 
-                            p2pState.mesaj = "KIRMI बुन्देलK GOL ATTI!"; 
+                            p2pState.mesaj = "KIRMIZI TAKIM GOL ATTI!"; 
                             oyunBeklemede = true;
                             setTimeout(() => { 
                                 if(p2pState.score.red >= p2pState.skorSiniri) bitirOyun(); 
@@ -787,7 +769,7 @@
                     for (let id in p2pState.players) {
                         let p = p2pState.players[id]; 
                         if (p.team !== 'spectator') {
-                            if (typeof p.stamina === 'undefined') { p.stamina = 100; p.staminaCooldown = 0; }
+                            if (typeof p.stamina === 'undefined') { p.stamina = 100; p.staminaCooldown = 0; p.hasShot = false; }
                             let ivme = 0.3; 
                             if (p.inputs.sprint && p.stamina > 0) { 
                                 ivme = 0.55; p.stamina -= 1.5; if (p.stamina < 0) p.stamina = 0; 
@@ -821,9 +803,9 @@
             p2pState.players[yeniOyuncuId] = { 
                 x: -1000, y: -1000, vx: 0, vy: 0, radius: 20, 
                 team: 'spectator', nick: "Bağlanıyor...", 
-                inputs: { up:false, down:false, left:false, right:false, chargeShoot:false, shoot:false, sprint:false }, 
+                inputs: { up:false, down:false, left:false, right:false, chargeShoot:false, sprint:false }, 
                 buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, 
-                stamina: 100, staminaCooldown: 0 
+                stamina: 100, staminaCooldown: 0, hasShot: false
             };
 
             const pc = new RTCPeerConnection(rtcConfig); 
