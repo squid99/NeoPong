@@ -290,7 +290,14 @@
         let isHost = false, isClient = false;
         const peers = {}, channels = {}, iceKuyruklari = {};
         let hostConnection = null, hostChannel = null, clientIceKuyrugu = [];
-        const rtcConfig = { 'iceServers': [{'urls': 'stun:stun.l.google.com:19302'}] };
+        const rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: 'stun:stun3.l.google.com:19302' }
+            ]
+        };
 
         const SAHALAR = { 'kucuk': { w: 900, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
         let p2pState = { players: {}, ball: { x: 450, y: 250, vx: 0, vy: 0, radius: 10 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 900, sahaH: 500, kaleBoyutu: 150, powerups: [] };
