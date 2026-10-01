@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoPong - WebRTC Final (Mobil Uyumlu)</title>
+    <title>NeoPong - WebRTC Final (Yetenekler ve Sprint Eklendi)</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #222; font-family: sans-serif; color: white; touch-action: none; }
         
@@ -25,12 +25,16 @@
         #btnMacBitir { background-color: #8e44ad; color: white; margin-left: 15px; display: none; }
         #ayarlar { background: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 5px; margin-top: 10px; }
 
-        /* MOBİL KONTROL CSS (Yukarı çekildi) */
+        /* MOBİL KONTROL CSS */
         #mobilKontroller { display: none; position: absolute; bottom: 0; left: 0; width: 100vw; height: 100vh; z-index: 100; pointer-events: none; }
         #joystickAlan { position: absolute; bottom: 100px; left: 40px; width: 140px; height: 140px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
         #joystickTop { position: absolute; top: 35px; left: 35px; width: 70px; height: 70px; background: rgba(255,255,255,0.6); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        
         #btnMobilSut { position: absolute; bottom: 100px; right: 40px; width: 100px; height: 100px; border-radius: 50%; background: rgba(231, 76, 60, 0.6); border: 2px solid rgba(231, 76, 60, 0.8); color: white; font-weight: bold; font-size: 24px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
         #btnMobilSut:active { background: rgba(231, 76, 60, 0.9); }
+        
+        #btnMobilSprint { position: absolute; bottom: 110px; right: 160px; width: 80px; height: 80px; border-radius: 50%; background: rgba(46, 204, 113, 0.6); border: 2px solid rgba(46, 204, 113, 0.8); color: white; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        #btnMobilSprint:active { background: rgba(46, 204, 113, 0.9); }
     </style>
 </head>
 <body>
@@ -72,6 +76,7 @@
 
         <div id="mobilKontroller">
             <div id="joystickAlan"><div id="joystickTop"></div></div>
+            <button id="btnMobilSprint">HIZ</button>
             <button id="btnMobilSut">ŞUT</button>
         </div>
     </div>
@@ -79,7 +84,7 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
         const MAX_OYUNCU = 8; 
-        const oracleIP = "http://132.226.192.255:3000";
+        const oracleIP = "https://sunucu.squid99.ink";
         const socket = io(oracleIP);
         
         const menuDiv = document.getElementById('menu');
@@ -150,14 +155,42 @@
             ctx.beginPath(); ctx.arc(state.sahaW, kaleUst, 6, 0, Math.PI*2); ctx.fill();
             ctx.beginPath(); ctx.arc(state.sahaW, kaleAlt, 6, 0, Math.PI*2); ctx.fill();
 
+            // Yetenekleri (Power-ups) Çizdirme
+            if (state.powerups) {
+                for (let pu of state.powerups) {
+                    ctx.beginPath();
+                    ctx.arc(pu.x, pu.y, pu.radius, 0, Math.PI * 2);
+                    // Dash için Sarı, Güçlü Şut için Mor
+                    ctx.fillStyle = pu.type === 'dash' ? '#f1c40f' : '#9b59b6';
+                    ctx.fill();
+                    ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+                    ctx.fillStyle = "white"; ctx.font = "bold 14px Arial"; ctx.textAlign = "center";
+                    ctx.fillText(pu.type === 'dash' ? 'HIZ' : 'ŞUT', pu.x, pu.y + 5);
+                }
+            }
+
+            // Top Çizimi
             ctx.beginPath();
             ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
             ctx.fillStyle = "white"; ctx.fill(); 
             ctx.strokeStyle = "black"; ctx.lineWidth = 2; ctx.stroke();
 
+            // Oyuncuları Çizdirme
             for (let id in state.players) {
                 let p = state.players[id];
                 if (p.team === 'spectator') continue; 
+
+                // Buff Efektleri (Aura)
+                if (p.buffs) {
+                    if (p.buffs.dashTimer > 0) {
+                        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 8, 0, Math.PI*2);
+                        ctx.strokeStyle = "rgba(241, 196, 15, 0.8)"; ctx.lineWidth = 4; ctx.stroke();
+                    }
+                    if (p.buffs.powerShotReady) {
+                        ctx.beginPath(); ctx.arc(p.x, p.y, p.radius + 12, 0, Math.PI*2);
+                        ctx.strokeStyle = "rgba(155, 89, 182, 0.8)"; ctx.lineWidth = 4; ctx.stroke();
+                    }
+                }
 
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
@@ -204,7 +237,7 @@
             }
         }
 
-        const inputs = { up: false, down: false, left: false, right: false, shoot: false };
+        const inputs = { up: false, down: false, left: false, right: false, shoot: false, sprint: false };
         let isOfficial = false;
 
         function veriGonder() {
@@ -219,6 +252,7 @@
             if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = true;
             if (['d', 'ArrowRight'].includes(e.key)) inputs.right = true;
             if (e.key === ' ') inputs.shoot = true; 
+            if (e.key === 'Shift') inputs.sprint = true;
             veriGonder();
         });
         window.addEventListener('keyup', (e) => {
@@ -227,6 +261,7 @@
             if (['a', 'ArrowLeft'].includes(e.key)) inputs.left = false;
             if (['d', 'ArrowRight'].includes(e.key)) inputs.right = false;
             if (e.key === ' ') inputs.shoot = false;
+            if (e.key === 'Shift') inputs.sprint = false;
             veriGonder();
         });
         window.addEventListener('mousedown', (e) => { if (e.button === 0) { inputs.shoot = true; veriGonder(); } });
@@ -236,6 +271,7 @@
         const joystickAlan = document.getElementById('joystickAlan');
         const joystickTop = document.getElementById('joystickTop');
         const btnMobilSut = document.getElementById('btnMobilSut');
+        const btnMobilSprint = document.getElementById('btnMobilSprint');
         let joyTouchId = null;
         let jCenterX = 0, jCenterY = 0;
 
@@ -243,9 +279,14 @@
             mobilKontroller.style.display = 'block';
         }
 
+        // Mobil Buton Kontrolleri
         btnMobilSut.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.shoot = true; veriGonder(); }, {passive: false});
         btnMobilSut.addEventListener('touchend', (e) => { e.preventDefault(); inputs.shoot = false; veriGonder(); }, {passive: false});
         btnMobilSut.addEventListener('touchcancel', (e) => { e.preventDefault(); inputs.shoot = false; veriGonder(); }, {passive: false});
+
+        btnMobilSprint.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.sprint = true; veriGonder(); }, {passive: false});
+        btnMobilSprint.addEventListener('touchend', (e) => { e.preventDefault(); inputs.sprint = false; veriGonder(); }, {passive: false});
+        btnMobilSprint.addEventListener('touchcancel', (e) => { e.preventDefault(); inputs.sprint = false; veriGonder(); }, {passive: false});
 
         joystickAlan.addEventListener('touchstart', (e) => {
             e.preventDefault();
@@ -341,7 +382,8 @@
             players: {}, ball: { x: 450, y: 250, vx: 0, vy: 0, radius: 10 },
             score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN",
             isPlaying: false, skorSiniri: 3, kalanSure: 180,
-            sahaW: 900, sahaH: 500, kaleBoyutu: 150
+            sahaW: 900, sahaH: 500, kaleBoyutu: 150,
+            powerups: [] // Yetenekleri tutan dizi
         };
         
         let gameLoopActif = false, oyunBeklemede = false, frameCount = 0;
@@ -357,7 +399,7 @@
             kontrolPaneli.style.display = "block";
             
             socket.emit('join-p2p', oda); 
-            p2pState.players[socket.id] = { x: -100, y: -100, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: myNickname, inputs: { up:false, down:false, left:false, right:false, shoot:false } };
+            p2pState.players[socket.id] = { x: -100, y: -100, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: myNickname, inputs: { up:false, down:false, left:false, right:false, shoot:false, sprint:false }, buffs: { dashTimer: 0, powerShotReady: false } };
             cizimiGuncelle(p2pState);
             
             durumMetni.innerText = "Bağlantı Bekleniyor...";
@@ -393,6 +435,7 @@
 
         function pozisyonSifirla(id) {
             let p = p2pState.players[id]; p.vx = 0; p.vy = 0;
+            p.buffs = { dashTimer: 0, powerShotReady: false }; // Yetenekleri sıfırla
             if (p.team === 'red' || p.team === 'blue') {
                 let index = 0;
                 for (let k in p2pState.players) {
@@ -407,6 +450,7 @@
 
         function santraYap() {
             p2pState.ball = { x: p2pState.sahaW/2, y: p2pState.sahaH/2, vx: 0, vy: 0, radius: 10 };
+            p2pState.powerups = []; // Sahadaki yetenekleri temizle
             for (let id in p2pState.players) pozisyonSifirla(id);
         }
 
@@ -432,22 +476,55 @@
                     frameCount++;
                     if (frameCount >= 60) { frameCount = 0; p2pState.kalanSure--; if (p2pState.kalanSure <= 0) bitirOyun(); }
 
+                    // Rastgele Yetenek Üretimi (yaklaşık her 8 saniyede 1 şans, maksimum 3 obje)
+                    if (Math.random() < 0.002 && p2pState.powerups.length < 3) {
+                        p2pState.powerups.push({
+                            id: Math.random().toString(),
+                            x: Math.random() * (p2pState.sahaW - 100) + 50,
+                            y: Math.random() * (p2pState.sahaH - 100) + 50,
+                            type: Math.random() < 0.5 ? 'dash' : 'powerShot',
+                            radius: 15
+                        });
+                    }
+
                     for (let id in p2pState.players) {
                         let p = p2pState.players[id];
                         if (p.team === 'spectator') continue; 
                         
-                        if (p.inputs.up) p.vy -= 0.3; if (p.inputs.down) p.vy += 0.3;
-                        if (p.inputs.left) p.vx -= 0.3; if (p.inputs.right) p.vx += 0.3;
+                        // Yetenek Timer Düşürme
+                        if (p.buffs && p.buffs.dashTimer > 0) p.buffs.dashTimer--;
+
+                        // Hız Hesabı (Temel Hareket + Sprint + Dash Buff)
+                        let ivme = 0.3;
+                        if (p.inputs.sprint) ivme = 0.55; 
+                        if (p.buffs && p.buffs.dashTimer > 0) ivme *= 1.8;
+
+                        if (p.inputs.up) p.vy -= ivme; if (p.inputs.down) p.vy += ivme;
+                        if (p.inputs.left) p.vx -= ivme; if (p.inputs.right) p.vx += ivme;
                         p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx; p.y += p.vy;
 
                         let pad = 200;
                         if (p.x < -pad) p.x = -pad; if (p.x > p2pState.sahaW + pad) p.x = p2pState.sahaW + pad;
                         if (p.y < -pad) p.y = -pad; if (p.y > p2pState.sahaH + pad) p.y = p2pState.sahaH + pad;
 
+                        // Oyuncu - Powerup Çarpışma Kontrolü
+                        for (let i = p2pState.powerups.length - 1; i >= 0; i--) {
+                            let pu = p2pState.powerups[i];
+                            let puDist = Math.hypot(pu.x - p.x, pu.y - p.y);
+                            if (puDist < p.radius + pu.radius) {
+                                if (!p.buffs) p.buffs = { dashTimer: 0, powerShotReady: false };
+                                if (pu.type === 'dash') p.buffs.dashTimer = 300; // 5 saniye (60 fps x 5) ekstra hız aurası
+                                if (pu.type === 'powerShot') p.buffs.powerShotReady = true;
+                                p2pState.powerups.splice(i, 1);
+                            }
+                        }
+
                         let dx = p2pState.ball.x - p.x; let dy = p2pState.ball.y - p.y;
                         let mesafe = Math.sqrt(dx * dx + dy * dy);
                         let temasMesafesi = p.radius + p2pState.ball.radius;
-                        let magnetMenzil = temasMesafesi + 60; 
+                        
+                        // 1. DÜZENLEME: Manyetik Çekim Mesafesini Düşürdük (Eskiden 60'tı, şimdi 30)
+                        let magnetMenzil = temasMesafesi + 30; 
                         
                         if (mesafe < temasMesafesi) {
                             let overlap = temasMesafesi - mesafe; let aci = Math.atan2(dy, dx);
@@ -456,14 +533,21 @@
                         } 
                         else if (mesafe < magnetMenzil) {
                             let aci = Math.atan2(dy, dx);
-                            let cekimGucu = (magnetMenzil - mesafe) * 0.003; 
+                            // 2. DÜZENLEME: Çekim Gücünü Düşürdük (Eskiden 0.003'tü, şimdi 0.0012)
+                            let cekimGucu = (magnetMenzil - mesafe) * 0.0012; 
                             p2pState.ball.vx -= Math.cos(aci) * cekimGucu;
                             p2pState.ball.vy -= Math.sin(aci) * cekimGucu;
                         }
                         
                         if (p.inputs.shoot && mesafe < temasMesafesi + 4) {
                             let aci = Math.atan2(dy, dx);
-                            p2pState.ball.vx += Math.cos(aci) * 5.5; p2pState.ball.vy += Math.sin(aci) * 5.5;
+                            let vurusHizi = 5.5;
+                            // Güçlü Şut Buff Kontrolü
+                            if (p.buffs && p.buffs.powerShotReady) {
+                                vurusHizi = 12.0; 
+                                p.buffs.powerShotReady = false; // Kullanıldıktan sonra silinir
+                            }
+                            p2pState.ball.vx += Math.cos(aci) * vurusHizi; p2pState.ball.vy += Math.sin(aci) * vurusHizi;
                         }
                     }
 
@@ -504,8 +588,9 @@
                     for (let id in p2pState.players) {
                         let p = p2pState.players[id];
                         if (p.team !== 'spectator') {
-                            if (p.inputs.up) p.vy -= 0.3; if (p.inputs.down) p.vy += 0.3;
-                            if (p.inputs.left) p.vx -= 0.3; if (p.inputs.right) p.vx += 0.3;
+                            let ivme = 0.3; if (p.inputs.sprint) ivme = 0.55;
+                            if (p.inputs.up) p.vy -= ivme; if (p.inputs.down) p.vy += ivme;
+                            if (p.inputs.left) p.vx -= ivme; if (p.inputs.right) p.vx += ivme;
                             p.vx *= 0.9; p.vy *= 0.9; p.x += p.vx; p.y += p.vy;
                         }
                     }
@@ -523,7 +608,7 @@
             if (Object.keys(p2pState.players).length >= MAX_OYUNCU) return; 
             durumMetni.style.display = "none"; 
             
-            p2pState.players[yeniOyuncuId] = { x: -1000, y: -1000, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: "Bağlanıyor...", inputs: { up:false, down:false, left:false, right:false, shoot:false } };
+            p2pState.players[yeniOyuncuId] = { x: -1000, y: -1000, vx: 0, vy: 0, radius: 20, team: 'spectator', nick: "Bağlanıyor...", inputs: { up:false, down:false, left:false, right:false, shoot:false, sprint:false }, buffs: { dashTimer: 0, powerShotReady: false } };
             startHostLoop();
 
             const pc = new RTCPeerConnection(rtcConfig); peers[yeniOyuncuId] = pc; iceKuyruklari[yeniOyuncuId] = [];
