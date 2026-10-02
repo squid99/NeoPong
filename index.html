@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoPong - Reklamlı Sürüm</title>
+    <title>NeoPong</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #222; font-family: sans-serif; color: white; touch-action: none; }
         #oyunEkrani { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: crosshair; }
         
-        /* YENİ: VİDEO REKLAM PANOLARI */
+        /* YENİ: VİDEO REKLAM PANOLARI (YouTube Uyumlu İframe) */
         .reklam-panosu { position: absolute; top: 50%; transform: translateY(-50%); width: 16vw; max-width: 250px; z-index: 5; pointer-events: none; border: 4px solid #333; border-radius: 8px; overflow: hidden; background: #000; box-shadow: 0 0 25px rgba(0,0,0,0.8); display: none; }
         #reklam-sol { left: 15px; }
         #reklam-sag { right: 15px; }
         .reklam-etiket { background: #ffcc00; color: black; text-align: center; font-size: 11px; font-weight: bold; padding: 3px; letter-spacing: 1px; }
-        .reklam-panosu video { width: 100%; height: auto; display: block; object-fit: cover; }
+        .reklam-panosu iframe { width: 100%; aspect-ratio: 16 / 9; display: block; border: none; pointer-events: none; }
 
         #uiKatmani { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #uiKatmani > * { pointer-events: auto; }
@@ -49,21 +49,16 @@
 </head>
 <body>
     
-    <!-- YENİ: VİDEO REKLAM PANOLARI (Oyun başlayınca görünür olacak) -->
+    <!-- YOUTUBE REKLAM PANOLARI -->
     <div id="reklam-sol" class="reklam-panosu">
         <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-        <!-- Buradaki mp4 linkini istediğin komik bir videonun linkiyle değiştirebilirsin -->
-        <video autoplay loop muted playsinline>
-            <source src="https://youtu.be/UenKGHSxc9c?si=WpB7YTgsw1JLgUz6" type="video/mp4">
-        </video>
+        <!-- v=dQw4w9WgXcQ olan linkin sadece ID'sini (dQw4w9WgXcQ) kopyalayıp buradaki iki yere de yapıştır -->
+        <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=dQw4w9WgXcQ" allow="autoplay; encrypted-media"></iframe>
     </div>
 
     <div id="reklam-sag" class="reklam-panosu">
         <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-        <!-- Buradaki mp4 linkini istediğin komik bir videonun linkiyle değiştirebilirsin -->
-        <video autoplay loop muted playsinline>
-            <source src="https://youtu.be/UenKGHSxc9c?si=WpB7YTgsw1JLgUz6" type="video/mp4">
-        </video>
+        <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=dQw4w9WgXcQ" allow="autoplay; encrypted-media"></iframe>
     </div>
 
     <canvas id="oyunEkrani"></canvas>
@@ -160,7 +155,6 @@
                 kontrolPaneli.style.display = state.isPlaying ? "none" : "block";
                 if (isHost) document.getElementById('btnMacBitir').style.display = state.isPlaying ? "inline-block" : "none";
                 
-                // P2P'de maç başladığında reklamlar çıksın
                 document.getElementById('reklam-sol').style.display = state.isPlaying ? "block" : "none";
                 document.getElementById('reklam-sag').style.display = state.isPlaying ? "block" : "none";
             }
@@ -206,7 +200,6 @@
                 ctx.fillRect(i, 0, w, state.sahaH);
             }
             
-            // ÇİZGİLER KALINLAŞTIRILDI (4 -> 8)
             ctx.strokeStyle = "rgba(255, 255, 255, 0.9)"; 
             ctx.lineWidth = 8; 
             ctx.strokeRect(0, 0, state.sahaW, state.sahaH);
@@ -223,7 +216,6 @@
             let kaleUst = (state.sahaH / 2) - (state.kaleBoyutu / 2);
             let kaleAlt = (state.sahaH / 2) + (state.kaleBoyutu / 2);
 
-            // KALE ÇİZGİLERİ KALINLAŞTIRILDI (3 -> 6)
             ctx.fillStyle = "rgba(231, 76, 60, 0.4)"; 
             ctx.fillRect(-45, kaleUst, 45, state.kaleBoyutu);
             ctx.strokeStyle = "rgba(231, 76, 60, 0.95)";
@@ -752,7 +744,6 @@
                             }
                         }
 
-                        // ŞUT MENZİLİ DARALTILDI (Sadece tam temas halindeyken vurabilir)
                         if (p.inputs.chargeShoot && !p.hasShot && mesafe <= temasMesafesi + 1.5) {
                             let aci = Math.atan2(dy, dx); 
                             let vurusHizi = 4.25; 
@@ -766,9 +757,8 @@
                         }
                     }
 
-                    // KATI OYUNCU HITBOXLARI (Çift Kontrol Sistemi)
                     let pIds = Object.keys(p2pState.players).filter(id => p2pState.players[id].team !== 'spectator');
-                    for (let k = 0; k < 2; k++) { // İç içe geçmeyi tamamen çözmek için döngü iki kez çalışır
+                    for (let k = 0; k < 2; k++) { 
                         for (let i = 0; i < pIds.length; i++) {
                             for (let j = i + 1; j < pIds.length; j++) {
                                 let p1 = p2pState.players[pIds[i]]; 
