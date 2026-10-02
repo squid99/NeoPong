@@ -644,9 +644,9 @@
                         if (typeof p.stamina === 'undefined') { p.stamina = 100; p.staminaCooldown = 0; p.hasShot = false; }
                         if (p.buffs && p.buffs.dashTimer > 0) p.buffs.dashTimer--;
                         
-                        let ivme = 0.3; 
+                        let ivme = 0.23; 
                         if (p.inputs.sprint && p.stamina > 0) { 
-                            ivme = 0.55; 
+                            ivme = 0.45; 
                             p.stamina -= 1.5; 
                             if (p.stamina < 0) p.stamina = 0; 
                             p.staminaCooldown = 180; 
@@ -727,7 +727,7 @@
                             // ŞUT GÜCÜ YARIYA İNDİRİLDİ (Eski: 8.5/13.5 -> Yeni: 4.25/6.75)
                             let vurusHizi = 4.25; 
                             if (p.buffs && p.buffs.powerShotReady) { 
-                                vurusHizi = 6.75; 
+                                vurusHizi = 7.50; 
                                 p.buffs.powerShotReady = false; 
                             }
                             p2pState.ball.vx = Math.cos(aci) * vurusHizi; 
