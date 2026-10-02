@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoPong</title>
+    <title>NeoPong - Reklamlı Sürüm</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #222; font-family: sans-serif; color: white; touch-action: none; }
         #oyunEkrani { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: crosshair; }
         
-        /* YENİ: VİDEO REKLAM PANOLARI (YouTube Uyumlu İframe) */
-        .reklam-panosu { position: absolute; top: 50%; transform: translateY(-50%); width: 16vw; max-width: 250px; z-index: 5; pointer-events: none; border: 4px solid #333; border-radius: 8px; overflow: hidden; background: #000; box-shadow: 0 0 25px rgba(0,0,0,0.8); display: none; }
+        /* BÜYÜTÜLMÜŞ VİDEO REKLAM PANOLARI */
+        .reklam-panosu { position: absolute; top: 50%; transform: translateY(-50%); width: 24vw; max-width: 350px; z-index: 5; pointer-events: none; border: 4px solid #333; border-radius: 8px; overflow: hidden; background: #000; box-shadow: 0 0 25px rgba(0,0,0,0.8); display: none; }
         #reklam-sol { left: 15px; }
         #reklam-sag { right: 15px; }
-        .reklam-etiket { background: #ffcc00; color: black; text-align: center; font-size: 11px; font-weight: bold; padding: 3px; letter-spacing: 1px; }
+        .reklam-etiket { background: #ffcc00; color: black; text-align: center; font-size: 13px; font-weight: bold; padding: 4px; letter-spacing: 1px; }
         .reklam-panosu iframe { width: 100%; aspect-ratio: 16 / 9; display: block; border: none; pointer-events: none; }
 
         #uiKatmani { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
@@ -49,21 +49,15 @@
 </head>
 <body>
     
-        <!-- YOUTUBE REKLAM PANOLARI -->
+    <!-- YOUTUBE REKLAM PANOLARI -->
     <div id="reklam-sol" class="reklam-panosu">
         <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-        <iframe src="https://www.youtube.com/embed/UenKGHSxc9c?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=UenKGHSxc9c" allow="autoplay; encrypted-media"></iframe>
+        <iframe src="https://www.youtube.com/embed/WT3xCdOXrfU?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=WT3xCdOXrfU" allow="autoplay; encrypted-media"></iframe>
     </div>
 
     <div id="reklam-sag" class="reklam-panosu">
         <div class="reklam-etiket">SPONSORLU İÇERİK</div>
         <iframe src="https://www.youtube.com/embed/UenKGHSxc9c?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=UenKGHSxc9c" allow="autoplay; encrypted-media"></iframe>
-    </div>
-
-
-    <div id="reklam-sag" class="reklam-panosu">
-        <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-        <iframe src="https://youtu.be/UenKGHSxc9c?si=V922lUCGvQ0dujBz?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=dQw4w9WgXcQ" allow="autoplay; encrypted-media"></iframe>
     </div>
 
     <canvas id="oyunEkrani"></canvas>
@@ -749,7 +743,8 @@
                             }
                         }
 
-                        if (p.inputs.chargeShoot && !p.hasShot && mesafe <= temasMesafesi + 1.5) {
+                        // ŞUT MENZİLİ ARTTIRILDI (1.5 -> 6 PİKSEL)
+                        if (p.inputs.chargeShoot && !p.hasShot && mesafe <= temasMesafesi + 6) {
                             let aci = Math.atan2(dy, dx); 
                             let vurusHizi = 4.25; 
                             if (p.buffs && p.buffs.powerShotReady) { 
@@ -788,8 +783,9 @@
                     p2pState.ball.x += p2pState.ball.vx; 
                     p2pState.ball.y += p2pState.ball.vy; 
                     
-                    p2pState.ball.vx *= 0.985; 
-                    p2pState.ball.vy *= 0.985;
+                    // SÜRTÜNME ARTTIRILDI (0.985 -> 0.975)
+                    p2pState.ball.vx *= 0.975; 
+                    p2pState.ball.vy *= 0.975;
                     if (Math.abs(p2pState.ball.vx) < 0.05) p2pState.ball.vx = 0;
                     if (Math.abs(p2pState.ball.vy) < 0.05) p2pState.ball.vy = 0;
 
