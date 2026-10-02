@@ -21,7 +21,6 @@
         #btnMavi { background-color: #3498db; color: white; }
         #ayarlar { background: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 5px; margin-top: 10px; }
 
-        /* YENİ: Sağ Üst Menü */
         #sagUstKisim { position: absolute; top: 20px; right: 20px; z-index: 50; display: none; flex-direction: column; align-items: flex-end; }
         #ustButonlar { margin-bottom: 10px; display: flex; gap: 10px; }
         #btnMacBitir { background-color: #8e44ad; color: white; display: none; margin: 0; padding: 8px 15px; font-size: 14px; }
@@ -36,7 +35,6 @@
         #joystickAlan { position: absolute; bottom: 100px; left: 40px; width: 140px; height: 140px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
         #joystickTop { position: absolute; top: 35px; left: 35px; width: 70px; height: 70px; background: rgba(255,255,255,0.6); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
         
-        /* YENİ: Mobil Butonlar Küçültüldü ve Üst Üste Dizildi */
         #btnMobilSut { position: absolute; bottom: 100px; right: 30px; width: 70px; height: 70px; border-radius: 50%; background: rgba(231, 76, 60, 0.6); border: 2px solid rgba(231, 76, 60, 0.8); color: white; font-weight: bold; font-size: 18px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
         #btnMobilSprint { position: absolute; bottom: 190px; right: 40px; width: 70px; height: 70px; border-radius: 50%; background: rgba(46, 204, 113, 0.6); border: 2px solid rgba(46, 204, 113, 0.8); color: white; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
     </style>
@@ -128,11 +126,9 @@
                 resizeCanvas();
             }
 
-            // --- ARAYÜZ KONTROLLERİ ---
             if (isOfficial) {
                 kontrolPaneli.style.display = "none";
             } else {
-                // Maç başladığında takım/ayar ekranını tamamen gizle
                 kontrolPaneli.style.display = state.isPlaying ? "none" : "block";
                 if (isHost) document.getElementById('btnMacBitir').style.display = state.isPlaying ? "inline-block" : "none";
             }
@@ -146,14 +142,26 @@
             let focusY = state.ball.y;
             let targetZoom = 1;
             
-            if (myP && myP.team !== 'spectator') {
-                let dist = Math.hypot(state.ball.x - myP.x, state.ball.y - myP.y);
-                focusX = myP.x * 0.6 + state.ball.x * 0.4;
-                focusY = myP.y * 0.6 + state.ball.y * 0.4;
-                let idealZoom = (Math.min(canvas.width, canvas.height) * 0.55) / Math.max(dist, 200);
-                targetZoom = Math.max(0.4, Math.min(1.4, idealZoom));
+            // KAMERA MANTIĞI EKLENDİ (Küçük sahalarda sabit)
+            if (state.sahaW <= 1100) {
+                // Kamera Sabit - Tüm sahayı ekrana sığdırır
+                focusX = state.sahaW / 2;
+                focusY = state.sahaH / 2;
+                let fitZoomX = canvas.width / (state.sahaW + 150);
+                let fitZoomY = canvas.height / (state.sahaH + 150);
+                targetZoom = Math.min(fitZoomX, fitZoomY);
+            } else {
+                // Kamera Dinamik - Oyuncuyu takip eder
+                if (myP && myP.team !== 'spectator') {
+                    let dist = Math.hypot(state.ball.x - myP.x, state.ball.y - myP.y);
+                    focusX = myP.x * 0.6 + state.ball.x * 0.4;
+                    focusY = myP.y * 0.6 + state.ball.y * 0.4;
+                    let idealZoom = (Math.min(canvas.width, canvas.height) * 0.55) / Math.max(dist, 200);
+                    targetZoom = Math.max(0.4, Math.min(1.4, idealZoom));
+                }
             }
-            if (isNaN(window.currentZoom)) window.currentZoom = 1;
+            
+            if (isNaN(window.currentZoom)) window.currentZoom = targetZoom;
             window.currentZoom += (targetZoom - window.currentZoom) * 0.05; 
 
             ctx.save();
@@ -434,7 +442,7 @@
             kontrolPaneli.style.display = "none";
             sagUstKisim.style.display = "flex";
             document.getElementById('btnMacBitir').style.display = "none";
-            document.getElementById('oyuncuListesi').style.display = "none"; // Resmi sunucuda liste yok
+            document.getElementById('oyuncuListesi').style.display = "none";
 
             socket.emit('join-official'); 
             socket.on('oyunDurumu', (state) => {
@@ -470,7 +478,8 @@
             ]
         };
 
-        const SAHALAR = { 'kucuk': { w: 900, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
+        // KÜÇÜK SAHA GENİŞLETİLDİ (Genişlik 900 -> 1050 yapıldı)
+        const SAHALAR = { 'kucuk': { w: 1050, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
         let p2pState = { players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [], yeteneklerAcik: true };
         let gameLoopActif = false, oyunBeklemede = false, frameCount = 0;
 
@@ -488,8 +497,9 @@
             document.getElementById('oyuncuListesi').style.display = "block";
 
             socket.emit('join-p2p', { roomId: oda, nick: myNickname }); 
+            // OYUNCU BOYUTU (RADIUS) 20 -> 16 YAPILDI
             p2pState.players[socket.id] = { 
-                x: -100, y: -100, vx: 0, vy: 0, radius: 20, 
+                x: -100, y: -100, vx: 0, vy: 0, radius: 16, 
                 team: 'spectator', nick: myNickname, 
                 inputs: { up:false, down:false, left:false, right:false, chargeShoot:false, sprint:false }, 
                 buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, 
@@ -714,9 +724,10 @@
 
                         if (p.inputs.chargeShoot && !p.hasShot && mesafe < temasMesafesi + 10) {
                             let aci = Math.atan2(dy, dx); 
-                            let vurusHizi = 8.5; 
+                            // ŞUT GÜCÜ YARIYA İNDİRİLDİ (Eski: 8.5/13.5 -> Yeni: 4.25/6.75)
+                            let vurusHizi = 4.25; 
                             if (p.buffs && p.buffs.powerShotReady) { 
-                                vurusHizi = 13.5; 
+                                vurusHizi = 6.75; 
                                 p.buffs.powerShotReady = false; 
                             }
                             p2pState.ball.vx = Math.cos(aci) * vurusHizi; 
@@ -830,7 +841,7 @@
             if (Object.keys(p2pState.players).length >= MAX_OYUNCU) return; 
             
             p2pState.players[yeniOyuncuId] = { 
-                x: -1000, y: -1000, vx: 0, vy: 0, radius: 20, 
+                x: -1000, y: -1000, vx: 0, vy: 0, radius: 16, // OYUNCU BOYUTU (RADIUS) 20 -> 16 YAPILDI
                 team: 'spectator', nick: "Bağlanıyor...", 
                 inputs: { up:false, down:false, left:false, right:false, chargeShoot:false, sprint:false }, 
                 buffs: { dashTimer: 0, powerShotReady: false, magnetTimer: 0 }, 
