@@ -13,7 +13,7 @@
         button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; border-radius: 5px; border: none; font-weight: bold; }
         #btnResmi { background-color: #3498db; color: white; }
         #btnP2P { background-color: #2ecc71; color: white; }
-        input, select { padding: 10px; font-size: 16px; margin: 10px; border-radius: 5px; border: none; text-align: center; }
+        input[type="text"], input[type="number"], select { padding: 10px; font-size: 16px; margin: 10px; border-radius: 5px; border: none; text-align: center; }
         
         #kontrolPaneli { display: none; position: absolute; bottom: 20px; max-width: 1000px; padding: 15px; background-color: rgba(30, 30, 30, 0.85); border-radius: 8px; border: 1px solid #555; text-align: center; z-index: 50; }
         #btnKirmizi { background-color: #e74c3c; color: white; }
@@ -233,8 +233,7 @@
                     ctx.fillStyle = (p.team === 'red') ? "#e74c3c" : "#3498db";
                     ctx.fill();
 
-                    // ŞARJ HALKASI: Space'e basılı tutulduğunda yanar
-                    if (p.inputs && p.inputs.chargeShoot) { 
+                    if (p.inputs && (p.inputs.chargeShoot || p.inputs.shoot)) { 
                         ctx.strokeStyle = "white"; 
                         ctx.lineWidth = 4; 
                     } else if (id === socket.id) { 
@@ -303,8 +302,7 @@
         }
         requestAnimationFrame(renderLoop);
 
-        // YENİ ŞUT MANTIĞI: Sadece chargeShoot (Basılı Tut) gönderilecek
-        const inputs = { up: false, down: false, left: false, right: false, chargeShoot: false, sprint: false };
+        const inputs = { up: false, down: false, left: false, right: false, chargeShoot: false, shoot: false, sprint: false };
         let isOfficial = false;
 
         function veriGonder() {
@@ -317,13 +315,23 @@
             }
         }
 
+        function triggerShoot() {
+            inputs.chargeShoot = false;
+            inputs.shoot = true;
+            veriGonder();
+            setTimeout(() => {
+                inputs.shoot = false;
+                veriGonder();
+            }, 60);
+        }
+
         window.addEventListener('keydown', (e) => {
             if (['w', 'W', 'ArrowUp'].includes(e.key)) inputs.up = true;
             if (['s', 'S', 'ArrowDown'].includes(e.key)) inputs.down = true;
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = true;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = true;
             if (e.key === 'Shift') inputs.sprint = true;
-            if (e.key === ' ') inputs.chargeShoot = true; // Şarjı Başlat
+            if (e.key === ' ' && !inputs.chargeShoot) { inputs.chargeShoot = true; } 
             veriGonder();
         });
 
@@ -333,16 +341,16 @@
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = false;
             if (['d', 'D', 'ArrowRight'].includes(e.key)) inputs.right = false;
             if (e.key === 'Shift') inputs.sprint = false;
-            if (e.key === ' ') inputs.chargeShoot = false; // Şarjı Kapat
+            if (e.key === ' ') { triggerShoot(); return; } 
             veriGonder();
         });
 
         window.addEventListener('mousedown', (e) => {
-            if (e.button === 0) { inputs.chargeShoot = true; veriGonder(); }
+            if (e.button === 0 && !inputs.chargeShoot) { inputs.chargeShoot = true; veriGonder(); }
         });
 
         window.addEventListener('mouseup', (e) => {
-            if (e.button === 0) { inputs.chargeShoot = false; veriGonder(); }
+            if (e.button === 0) { triggerShoot(); }
         });
 
         const mobilKontroller = document.getElementById('mobilKontroller');
@@ -355,8 +363,8 @@
         if ('ontouchstart' in window || navigator.maxTouchPoints > 0) mobilKontroller.style.display = 'block';
 
         btnMobilSut.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.chargeShoot = true; veriGonder(); }, {passive: false});
-        btnMobilSut.addEventListener('touchend', (e) => { e.preventDefault(); inputs.chargeShoot = false; veriGonder(); }, {passive: false});
-        btnMobilSut.addEventListener('touchcancel', (e) => { e.preventDefault(); inputs.chargeShoot = false; veriGonder(); }, {passive: false});
+        btnMobilSut.addEventListener('touchend', (e) => { e.preventDefault(); triggerShoot(); }, {passive: false});
+        btnMobilSut.addEventListener('touchcancel', (e) => { e.preventDefault(); triggerShoot(); }, {passive: false});
         
         btnMobilSprint.addEventListener('touchstart', (e) => { e.preventDefault(); inputs.sprint = true; veriGonder(); }, {passive: false});
         btnMobilSprint.addEventListener('touchend', (e) => { e.preventDefault(); inputs.sprint = false; veriGonder(); }, {passive: false});
@@ -446,7 +454,7 @@
         };
 
         const SAHALAR = { 'kucuk': { w: 900, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
-        let p2pState = { players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [] };
+        let p2pState = { players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [], yeteneklerAcik: true };
         let gameLoopActif = false, oyunBeklemede = false, frameCount = 0;
 
         document.getElementById('btnP2P').addEventListener('click', () => {
@@ -507,10 +515,14 @@
                         <option value="kucuk">Küçük</option><option value="orta" selected>Orta</option><option value="buyuk">Büyük</option><option value="anasininki">Anasınınki</option>
                     </select>
                 </label>
+                <label style="margin-left:10px; cursor:pointer;">
+                    <input type="checkbox" id="chkYetenek" checked style="width:auto; margin:0;"> Özellikler
+                </label>
                 <button id="btnBaslat" style="background-color: #f1c40f; color: black; margin-left:10px;">Maçı Başlat</button>
             `;
             document.getElementById('btnBaslat').addEventListener('click', () => {
                 if (!p2pState.isPlaying) {
+                    p2pState.yeteneklerAcik = document.getElementById('chkYetenek').checked;
                     p2pState.skorSiniri = parseInt(document.getElementById('skorSiniri').value); 
                     p2pState.kalanSure = parseInt(document.getElementById('sureSiniri').value) * 60;
                     let secilenSaha = document.getElementById('sahaBoyutu').value;
@@ -587,7 +599,8 @@
                         if (p2pState.kalanSure <= 0) bitirOyun(); 
                     }
                     
-                    if (Math.random() < 0.002 && p2pState.powerups.length < 3) {
+                    // Yetenek (Powerup) Açma Kapama Kontrolü
+                    if (p2pState.yeteneklerAcik && Math.random() < 0.002 && p2pState.powerups.length < 3) {
                         let rand = Math.random();
                         let pType = rand < 0.40 ? 'dash' : (rand < 0.75 ? 'powerShot' : 'magnet');
                         p2pState.powerups.push({ 
@@ -648,8 +661,8 @@
                             let mDy = p.y - p2pState.ball.y;
                             let mDist = Math.hypot(mDx, mDy);
                             if (mDist > 0) {
-                                p2pState.ball.vx += (mDx / mDist) * 0.4;
-                                p2pState.ball.vy += (mDy / mDist) * 0.4;
+                                p2pState.ball.vx += (mDx / mDist) * 0.15; // Çekim gücü ciddi oranda azaltıldı (eski: 0.4)
+                                p2pState.ball.vy += (mDy / mDist) * 0.15;
                             }
                         }
 
@@ -685,9 +698,9 @@
 
                         if (p.inputs.chargeShoot && !p.hasShot && mesafe < temasMesafesi + 10) {
                             let aci = Math.atan2(dy, dx); 
-                            let vurusHizi = 12.0; 
+                            let vurusHizi = 8.5; // Şut hızı azaltıldı
                             if (p.buffs && p.buffs.powerShotReady) { 
-                                vurusHizi = 18.0; 
+                                vurusHizi = 13.5; 
                                 p.buffs.powerShotReady = false; 
                             }
                             p2pState.ball.vx = Math.cos(aci) * vurusHizi; 
@@ -720,8 +733,9 @@
                     p2pState.ball.x += p2pState.ball.vx; 
                     p2pState.ball.y += p2pState.ball.vy; 
                     
-                    p2pState.ball.vx *= 0.95; 
-                    p2pState.ball.vy *= 0.95;
+                    // Yağ gibi süzülmesi için sürtünme hafifletildi (0.95 -> 0.985)
+                    p2pState.ball.vx *= 0.985; 
+                    p2pState.ball.vy *= 0.985;
                     if (Math.abs(p2pState.ball.vx) < 0.05) p2pState.ball.vx = 0;
                     if (Math.abs(p2pState.ball.vy) < 0.05) p2pState.ball.vy = 0;
 
