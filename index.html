@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoPong - Reklamlı Sürüm</title>
+    <title>NeoPong - 6 Reklamlı Sürüm</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #222; font-family: sans-serif; color: white; touch-action: none; }
         #oyunEkrani { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: crosshair; }
         
-        /* BÜYÜTÜLMÜŞ VİDEO REKLAM PANOLARI */
-        .reklam-panosu { position: absolute; top: 50%; transform: translateY(-50%); width: 24vw; max-width: 350px; z-index: 5; pointer-events: none; border: 4px solid #333; border-radius: 8px; overflow: hidden; background: #000; box-shadow: 0 0 25px rgba(0,0,0,0.8); display: none; }
+        #reklam-sol, #reklam-sag { position: absolute; top: 50%; transform: translateY(-50%); width: 22vw; max-width: 320px; z-index: 5; pointer-events: none; display: none; }
         #reklam-sol { left: 15px; }
         #reklam-sag { right: 15px; }
+        
+        .reklam-panosu { border: 4px solid #333; border-radius: 8px; overflow: hidden; background: #000; box-shadow: 0 0 25px rgba(0,0,0,0.8); margin-bottom: 15px; width: 100%; }
+        .reklam-panosu:last-child { margin-bottom: 0; }
         .reklam-etiket { background: #ffcc00; color: black; text-align: center; font-size: 13px; font-weight: bold; padding: 4px; letter-spacing: 1px; }
         .reklam-panosu iframe { width: 100%; aspect-ratio: 16 / 9; display: block; border: none; pointer-events: none; }
 
@@ -49,15 +51,36 @@
 </head>
 <body>
     
-    <!-- YOUTUBE REKLAM PANOLARI -->
-    <div id="reklam-sol" class="reklam-panosu">
-        <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-        <iframe src="https://www.youtube.com/embed/WT3xCdOXrfU?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=WT3xCdOXrfU" allow="autoplay; encrypted-media"></iframe>
+    <!-- YOUTUBE REKLAM PANOLARI (SOL SÜTUN - 3 VİDEO) -->
+    <div id="reklam-sol">
+        <div class="reklam-panosu">
+            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
+            <iframe src="https://www.youtube.com/embed/fjHx9re9ESs?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=fjHx9re9ESs" allow="autoplay; encrypted-media"></iframe>
+        </div>
+        <div class="reklam-panosu">
+            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
+            <iframe src="https://www.youtube.com/embed/vvciWxjd0-8?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=vvciWxjd0-8" allow="autoplay; encrypted-media"></iframe>
+        </div>
+        <div class="reklam-panosu">
+            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
+            <iframe src="https://www.youtube.com/embed/_umWLHhvUSM?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=_umWLHhvUSM" allow="autoplay; encrypted-media"></iframe>
+        </div>
     </div>
 
-    <div id="reklam-sag" class="reklam-panosu">
-        <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-        <iframe src="https://www.youtube.com/embed/UenKGHSxc9c?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=UenKGHSxc9c" allow="autoplay; encrypted-media"></iframe>
+    <!-- YOUTUBE REKLAM PANOLARI (SAĞ SÜTUN - 3 VİDEO) -->
+    <div id="reklam-sag">
+        <div class="reklam-panosu">
+            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
+            <iframe src="https://www.youtube.com/embed/V4za_Vu26ek?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=V4za_Vu26ek" allow="autoplay; encrypted-media"></iframe>
+        </div>
+        <div class="reklam-panosu">
+            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
+            <iframe src="https://www.youtube.com/embed/WT3xCdOXrfU?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=WT3xCdOXrfU" allow="autoplay; encrypted-media"></iframe>
+        </div>
+        <div class="reklam-panosu">
+            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
+            <iframe src="https://www.youtube.com/embed/UenKGHSxc9c?autoplay=1&mute=1&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=UenKGHSxc9c" allow="autoplay; encrypted-media"></iframe>
+        </div>
     </div>
 
     <canvas id="oyunEkrani"></canvas>
@@ -743,7 +766,6 @@
                             }
                         }
 
-                        // ŞUT MENZİLİ ARTTIRILDI (1.5 -> 6 PİKSEL)
                         if (p.inputs.chargeShoot && !p.hasShot && mesafe <= temasMesafesi + 6) {
                             let aci = Math.atan2(dy, dx); 
                             let vurusHizi = 4.25; 
@@ -783,7 +805,6 @@
                     p2pState.ball.x += p2pState.ball.vx; 
                     p2pState.ball.y += p2pState.ball.vy; 
                     
-                    // SÜRTÜNME ARTTIRILDI (0.985 -> 0.975)
                     p2pState.ball.vx *= 0.975; 
                     p2pState.ball.vy *= 0.975;
                     if (Math.abs(p2pState.ball.vx) < 0.05) p2pState.ball.vx = 0;
