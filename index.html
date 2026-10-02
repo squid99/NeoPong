@@ -19,20 +19,26 @@
         #btnKirmizi { background-color: #e74c3c; color: white; }
         #btnIzleyici { background-color: #7f8c8d; color: white; }
         #btnMavi { background-color: #3498db; color: white; }
-        #btnMacBitir { background-color: #8e44ad; color: white; margin-left: 15px; display: none; }
-        #btnOdadanCik { background-color: #e67e22; color: white; margin-left: 15px; }
         #ayarlar { background: rgba(0, 0, 0, 0.5); padding: 10px; border-radius: 5px; margin-top: 10px; }
+
+        /* YENİ: Sağ Üst Menü */
+        #sagUstKisim { position: absolute; top: 20px; right: 20px; z-index: 50; display: none; flex-direction: column; align-items: flex-end; }
+        #ustButonlar { margin-bottom: 10px; display: flex; gap: 10px; }
+        #btnMacBitir { background-color: #8e44ad; color: white; display: none; margin: 0; padding: 8px 15px; font-size: 14px; }
+        #btnOdadanCik { background-color: #e67e22; color: white; margin: 0; padding: 8px 15px; font-size: 14px; }
+
+        #oyuncuListesi { background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #555; min-width: 150px; display: none; }
+        #oyuncuListesi h3 { margin: 0 0 10px 0; font-size: 16px; color: #f1c40f; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center; }
+        #listeIcerik { list-style: none; padding: 0; margin: 0; font-size: 14px; }
+        #listeIcerik li { margin-bottom: 8px; padding-left: 5px; }
 
         #mobilKontroller { display: none; position: absolute; bottom: 0; left: 0; width: 100vw; height: 100vh; z-index: 100; pointer-events: none; }
         #joystickAlan { position: absolute; bottom: 100px; left: 40px; width: 140px; height: 140px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
         #joystickTop { position: absolute; top: 35px; left: 35px; width: 70px; height: 70px; background: rgba(255,255,255,0.6); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        #btnMobilSut { position: absolute; bottom: 100px; right: 40px; width: 100px; height: 100px; border-radius: 50%; background: rgba(231, 76, 60, 0.6); border: 2px solid rgba(231, 76, 60, 0.8); color: white; font-weight: bold; font-size: 24px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
-        #btnMobilSprint { position: absolute; bottom: 110px; right: 160px; width: 80px; height: 80px; border-radius: 50%; background: rgba(46, 204, 113, 0.6); border: 2px solid rgba(46, 204, 113, 0.8); color: white; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
         
-        #oyuncuListesi { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #555; z-index: 50; display: none; min-width: 150px; }
-        #oyuncuListesi h3 { margin: 0 0 10px 0; font-size: 16px; color: #f1c40f; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center; }
-        #listeIcerik { list-style: none; padding: 0; margin: 0; font-size: 14px; }
-        #listeIcerik li { margin-bottom: 8px; padding-left: 5px; }
+        /* YENİ: Mobil Butonlar Küçültüldü ve Üst Üste Dizildi */
+        #btnMobilSut { position: absolute; bottom: 40px; right: 30px; width: 70px; height: 70px; border-radius: 50%; background: rgba(231, 76, 60, 0.6); border: 2px solid rgba(231, 76, 60, 0.8); color: white; font-weight: bold; font-size: 18px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        #btnMobilSprint { position: absolute; bottom: 130px; right: 30px; width: 70px; height: 70px; border-radius: 50%; background: rgba(46, 204, 113, 0.6); border: 2px solid rgba(46, 204, 113, 0.8); color: white; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
@@ -66,14 +72,17 @@
             <div id="ayarlar">
                 <span id="ayarIcerik">Arayüz Yükleniyor...</span>
             </div>
-            
-            <button id="btnMacBitir">Maçı Bitir</button>
-            <button id="btnOdadanCik">Menüye Dön</button>
         </div>
 
-        <div id="oyuncuListesi">
-            <h3>Oyuncular</h3>
-            <ul id="listeIcerik"></ul>
+        <div id="sagUstKisim">
+            <div id="ustButonlar">
+                <button id="btnMacBitir">Maçı Bitir</button>
+                <button id="btnOdadanCik">Menüye Dön</button>
+            </div>
+            <div id="oyuncuListesi">
+                <h3>Oyuncular</h3>
+                <ul id="listeIcerik"></ul>
+            </div>
         </div>
 
         <div id="mobilKontroller">
@@ -91,6 +100,7 @@
         
         const menuDiv = document.getElementById('menu');
         const kontrolPaneli = document.getElementById('kontrolPaneli');
+        const sagUstKisim = document.getElementById('sagUstKisim');
         const durumMetni = document.getElementById('durum');
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
@@ -116,6 +126,15 @@
 
             if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
                 resizeCanvas();
+            }
+
+            // --- ARAYÜZ KONTROLLERİ ---
+            if (isOfficial) {
+                kontrolPaneli.style.display = "none";
+            } else {
+                // Maç başladığında takım/ayar ekranını tamamen gizle
+                kontrolPaneli.style.display = state.isPlaying ? "none" : "block";
+                if (isHost) document.getElementById('btnMacBitir').style.display = state.isPlaying ? "inline-block" : "none";
             }
 
             ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -412,12 +431,10 @@
             menuDiv.style.display = "none"; 
             canvas.style.display = "block"; 
             resizeCanvas();
-            kontrolPaneli.style.display = "block";
-            durumMetni.style.display = "none";
-            
-            document.getElementById('takimSecim').style.display = "none";
-            document.getElementById('ayarlar').style.display = "none";
+            kontrolPaneli.style.display = "none";
+            sagUstKisim.style.display = "flex";
             document.getElementById('btnMacBitir').style.display = "none";
+            document.getElementById('oyuncuListesi').style.display = "none"; // Resmi sunucuda liste yok
 
             socket.emit('join-official'); 
             socket.on('oyunDurumu', (state) => {
@@ -467,8 +484,8 @@
             canvas.style.display = "block"; 
             resizeCanvas();
             kontrolPaneli.style.display = "block";
+            sagUstKisim.style.display = "flex";
             document.getElementById('oyuncuListesi').style.display = "block";
-            document.getElementById('ayarlar').style.display = "block";
 
             socket.emit('join-p2p', { roomId: oda, nick: myNickname }); 
             p2pState.players[socket.id] = { 
@@ -599,7 +616,6 @@
                         if (p2pState.kalanSure <= 0) bitirOyun(); 
                     }
                     
-                    // Yetenek (Powerup) Açma Kapama Kontrolü
                     if (p2pState.yeteneklerAcik && Math.random() < 0.002 && p2pState.powerups.length < 3) {
                         let rand = Math.random();
                         let pType = rand < 0.40 ? 'dash' : (rand < 0.75 ? 'powerShot' : 'magnet');
@@ -661,7 +677,7 @@
                             let mDy = p.y - p2pState.ball.y;
                             let mDist = Math.hypot(mDx, mDy);
                             if (mDist > 0) {
-                                p2pState.ball.vx += (mDx / mDist) * 0.15; // Çekim gücü ciddi oranda azaltıldı (eski: 0.4)
+                                p2pState.ball.vx += (mDx / mDist) * 0.15;
                                 p2pState.ball.vy += (mDy / mDist) * 0.15;
                             }
                         }
@@ -698,7 +714,7 @@
 
                         if (p.inputs.chargeShoot && !p.hasShot && mesafe < temasMesafesi + 10) {
                             let aci = Math.atan2(dy, dx); 
-                            let vurusHizi = 8.5; // Şut hızı azaltıldı
+                            let vurusHizi = 8.5; 
                             if (p.buffs && p.buffs.powerShotReady) { 
                                 vurusHizi = 13.5; 
                                 p.buffs.powerShotReady = false; 
@@ -733,7 +749,6 @@
                     p2pState.ball.x += p2pState.ball.vx; 
                     p2pState.ball.y += p2pState.ball.vy; 
                     
-                    // Yağ gibi süzülmesi için sürtünme hafifletildi (0.95 -> 0.985)
                     p2pState.ball.vx *= 0.985; 
                     p2pState.ball.vy *= 0.985;
                     if (Math.abs(p2pState.ball.vx) < 0.05) p2pState.ball.vx = 0;
