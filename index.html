@@ -3,19 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>NeoPong - 6 Reklamlı Sürüm</title>
+    <title>NeoPong</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #222; font-family: sans-serif; color: white; touch-action: none; }
         #oyunEkrani { display: none; position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; cursor: crosshair; }
-        
-        #reklam-sol, #reklam-sag { position: absolute; top: 50%; transform: translateY(-50%); width: 22vw; max-width: 320px; z-index: 5; pointer-events: none; display: none; }
-        #reklam-sol { left: 15px; }
-        #reklam-sag { right: 15px; }
-        
-        .reklam-panosu { border: 4px solid #333; border-radius: 8px; overflow: hidden; background: #000; box-shadow: 0 0 25px rgba(0,0,0,0.8); margin-bottom: 15px; width: 100%; }
-        .reklam-panosu:last-child { margin-bottom: 0; }
-        .reklam-etiket { background: #ffcc00; color: black; text-align: center; font-size: 13px; font-weight: bold; padding: 4px; letter-spacing: 1px; }
-        .reklam-panosu iframe { width: 100%; aspect-ratio: 16 / 9; display: block; border: none; pointer-events: none; }
 
         #uiKatmani { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         #uiKatmani > * { pointer-events: auto; }
@@ -51,38 +42,6 @@
 </head>
 <body>
     
-    <!-- YOUTUBE REKLAM PANOLARI (SOL SÜTUN - 3 VİDEO) -->
-    <div id="reklam-sol">
-        <div class="reklam-panosu">
-            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-            <iframe src="https://www.youtube.com/embed/fjHx9re9ESs?autoplay=1&mute=0&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=fjHx9re9ESs" allow="autoplay; encrypted-media"></iframe>
-        </div>
-        <div class="reklam-panosu">
-            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-            <iframe src="https://www.youtube.com/embed/vvciWxjd0-8?autoplay=1&mute=0&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=vvciWxjd0-8" allow="autoplay; encrypted-media"></iframe>
-        </div>
-        <div class="reklam-panosu">
-            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-            <iframe src="https://www.youtube.com/embed/_umWLHhvUSM?autoplay=1&mute=0&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=_umWLHhvUSM" allow="autoplay; encrypted-media"></iframe>
-        </div>
-    </div>
-
-    <!-- YOUTUBE REKLAM PANOLARI (SAĞ SÜTUN - 3 VİDEO) -->
-    <div id="reklam-sag">
-        <div class="reklam-panosu">
-            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-            <iframe src="https://www.youtube.com/embed/V4za_Vu26ek?autoplay=1&mute=0&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=V4za_Vu26ek" allow="autoplay; encrypted-media"></iframe>
-        </div>
-        <div class="reklam-panosu">
-            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-            <iframe src="https://www.youtube.com/embed/WT3xCdOXrfU?autoplay=1&mute=0&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=WT3xCdOXrfU" allow="autoplay; encrypted-media"></iframe>
-        </div>
-        <div class="reklam-panosu">
-            <div class="reklam-etiket">SPONSORLU İÇERİK</div>
-            <iframe src="https://www.youtube.com/embed/UenKGHSxc9c?autoplay=1&mute=0&controls=0&disablekb=1&modestbranding=1&loop=1&playlist=UenKGHSxc9c" allow="autoplay; encrypted-media"></iframe>
-        </div>
-    </div>
-
     <canvas id="oyunEkrani"></canvas>
     
     <div id="uiKatmani">
@@ -154,8 +113,21 @@
         resizeCanvas();
 
         let currentPing = 0;
-        setInterval(() => { socket.emit('pingCheck', Date.now()); }, 1000);
-        socket.on('pongCheck', (zaman) => { currentPing = Date.now() - zaman; });
+        setInterval(() => { 
+            if (isOfficial || (!isHost && !isClient)) {
+                socket.emit('pingCheck', Date.now()); 
+            } else if (isClient && hostChannel && hostChannel.readyState === 'open') {
+                hostChannel.send(JSON.stringify({ type: 'p2p-ping', time: Date.now() }));
+            } else if (isHost) {
+                currentPing = 0;
+            }
+        }, 1000);
+
+        socket.on('pongCheck', (zaman) => { 
+            if (isOfficial || (!isHost && !isClient)) {
+                currentPing = Date.now() - zaman; 
+            }
+        });
 
         let myNickname = "Oyuncu";
         window.currentZoom = 1;
@@ -171,14 +143,9 @@
 
             if (isOfficial) {
                 kontrolPaneli.style.display = "none";
-                document.getElementById('reklam-sol').style.display = "block";
-                document.getElementById('reklam-sag').style.display = "block";
             } else {
                 kontrolPaneli.style.display = state.isPlaying ? "none" : "block";
                 if (isHost) document.getElementById('btnMacBitir').style.display = state.isPlaying ? "inline-block" : "none";
-                
-                document.getElementById('reklam-sol').style.display = state.isPlaying ? "block" : "none";
-                document.getElementById('reklam-sag').style.display = state.isPlaying ? "block" : "none";
             }
 
             ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -768,9 +735,9 @@
 
                         if (p.inputs.chargeShoot && !p.hasShot && mesafe <= temasMesafesi + 6) {
                             let aci = Math.atan2(dy, dx); 
-                            let vurusHizi = 4.25; 
+                            let vurusHizi = 7.5; 
                             if (p.buffs && p.buffs.powerShotReady) { 
-                                vurusHizi = 6.75; 
+                                vurusHizi = 11.5; 
                                 p.buffs.powerShotReady = false; 
                             }
                             p2pState.ball.vx = Math.cos(aci) * vurusHizi; 
@@ -813,6 +780,33 @@
                     let kaleUst = (p2pState.sahaH / 2) - (p2pState.kaleBoyutu / 2); 
                     let kaleAlt = (p2pState.sahaH / 2) + (p2pState.kaleBoyutu / 2);
 
+                    // YENİ DİREK ÇARPIŞMA FİZİKLERİ
+                    let direkler = [
+                        { x: 0, y: kaleUst, r: 6 },
+                        { x: 0, y: kaleAlt, r: 6 },
+                        { x: p2pState.sahaW, y: kaleUst, r: 6 },
+                        { x: p2pState.sahaW, y: kaleAlt, r: 6 }
+                    ];
+                    for (let direk of direkler) {
+                        let dx = p2pState.ball.x - direk.x;
+                        let dy = p2pState.ball.y - direk.y;
+                        let mesafe = Math.sqrt(dx * dx + dy * dy);
+                        let temas = p2pState.ball.radius + direk.r;
+                        if (mesafe < temas) {
+                            let overlap = temas - mesafe;
+                            let nx = dx / mesafe;
+                            let ny = dy / mesafe;
+                            p2pState.ball.x += nx * overlap;
+                            p2pState.ball.y += ny * overlap;
+                            let dotProduct = p2pState.ball.vx * nx + p2pState.ball.vy * ny;
+                            p2pState.ball.vx -= 2 * dotProduct * nx;
+                            p2pState.ball.vy -= 2 * dotProduct * ny;
+                            p2pState.ball.vx *= 0.8; 
+                            p2pState.ball.vy *= 0.8;
+                        }
+                    }
+
+                    // ALT VE ÜST DUVAR ÇARPIŞMALARI
                     if (p2pState.ball.y < p2pState.ball.radius) { 
                         p2pState.ball.vy *= -1; 
                         p2pState.ball.y = p2pState.ball.radius; 
@@ -822,25 +816,61 @@
                         p2pState.ball.y = p2pState.sahaH - p2pState.ball.radius; 
                     }
                     
+                    // KALE FİLELERİ VE SAĞ/SOL DUVAR ÇARPIŞMALARI
                     if (p2pState.ball.y > kaleUst && p2pState.ball.y < kaleAlt) {
-                        if (p2pState.ball.x < -p2pState.ball.radius && !oyunBeklemede) {
-                            p2pState.score.blue++; 
-                            p2pState.mesaj = "MAVİ TAKIM GOL ATTI!"; 
-                            oyunBeklemede = true;
-                            setTimeout(() => { 
-                                if(p2pState.score.blue >= p2pState.skorSiniri) bitirOyun(); 
-                                else { santraYap(); oyunBeklemede = false; p2pState.mesaj = ""; } 
-                            }, 3000);
-                        } else if (p2pState.ball.x > p2pState.sahaW + p2pState.ball.radius && !oyunBeklemede) {
-                            p2pState.score.red++; 
-                            p2pState.mesaj = "KIRMIZI TAKIM GOL ATTI!"; 
-                            oyunBeklemede = true;
-                            setTimeout(() => { 
-                                if(p2pState.score.red >= p2pState.skorSiniri) bitirOyun(); 
-                                else { santraYap(); oyunBeklemede = false; p2pState.mesaj = ""; } 
-                            }, 3000);
+                        let kaleDerinlik = 42; 
+                        
+                        if (p2pState.ball.x < 0) {
+                            // Sol Kale İçi (File)
+                            if (p2pState.ball.x < -kaleDerinlik + p2pState.ball.radius) {
+                                p2pState.ball.x = -kaleDerinlik + p2pState.ball.radius;
+                                p2pState.ball.vx *= -0.2; 
+                            }
+                            if (p2pState.ball.y < kaleUst + p2pState.ball.radius) {
+                                p2pState.ball.y = kaleUst + p2pState.ball.radius;
+                                p2pState.ball.vy *= -0.2;
+                            }
+                            if (p2pState.ball.y > kaleAlt - p2pState.ball.radius) {
+                                p2pState.ball.y = kaleAlt - p2pState.ball.radius;
+                                p2pState.ball.vy *= -0.2;
+                            }
+                            
+                            if (p2pState.ball.x < -p2pState.ball.radius && !oyunBeklemede) {
+                                p2pState.score.blue++; 
+                                p2pState.mesaj = "MAVİ TAKIM GOL ATTI!"; 
+                                oyunBeklemede = true;
+                                setTimeout(() => { 
+                                    if(p2pState.score.blue >= p2pState.skorSiniri) bitirOyun(); 
+                                    else { santraYap(); oyunBeklemede = false; p2pState.mesaj = ""; } 
+                                }, 3000);
+                            }
+                        } else if (p2pState.ball.x > p2pState.sahaW) {
+                            // Sağ Kale İçi (File)
+                            if (p2pState.ball.x > p2pState.sahaW + kaleDerinlik - p2pState.ball.radius) {
+                                p2pState.ball.x = p2pState.sahaW + kaleDerinlik - p2pState.ball.radius;
+                                p2pState.ball.vx *= -0.2;
+                            }
+                            if (p2pState.ball.y < kaleUst + p2pState.ball.radius) {
+                                p2pState.ball.y = kaleUst + p2pState.ball.radius;
+                                p2pState.ball.vy *= -0.2;
+                            }
+                            if (p2pState.ball.y > kaleAlt - p2pState.ball.radius) {
+                                p2pState.ball.y = kaleAlt - p2pState.ball.radius;
+                                p2pState.ball.vy *= -0.2;
+                            }
+
+                            if (p2pState.ball.x > p2pState.sahaW + p2pState.ball.radius && !oyunBeklemede) {
+                                p2pState.score.red++; 
+                                p2pState.mesaj = "KIRMIZI TAKIM GOL ATTI!"; 
+                                oyunBeklemede = true;
+                                setTimeout(() => { 
+                                    if(p2pState.score.red >= p2pState.skorSiniri) bitirOyun(); 
+                                    else { santraYap(); oyunBeklemede = false; p2pState.mesaj = ""; } 
+                                }, 3000);
+                            }
                         }
                     } else {
+                        // Normal Sağ ve Sol Saha Çizgileri
                         if (p2pState.ball.x < p2pState.ball.radius) { 
                             p2pState.ball.vx *= -1; 
                             p2pState.ball.x = p2pState.ball.radius; 
@@ -971,9 +1001,15 @@
                     } else if (mesaj.type === 'team-change' && p2pState.players[kimlik] && !p2pState.isPlaying) {
                         p2pState.players[kimlik].team = mesaj.team; 
                         pozisyonSifirla(kimlik);
+                    } else if (mesaj.type === 'p2p-ping') {
+                        channel.send(JSON.stringify({ type: 'p2p-pong', time: mesaj.time }));
                     }
-                } else if (!isHost && mesaj.type === 'state') { 
-                    sonGelenState = mesaj.data;
+                } else if (!isHost) { 
+                    if (mesaj.type === 'state') {
+                        sonGelenState = mesaj.data;
+                    } else if (mesaj.type === 'p2p-pong') {
+                        currentPing = Date.now() - mesaj.time;
+                    }
                 }
             };
         }
