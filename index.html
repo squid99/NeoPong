@@ -840,6 +840,7 @@
                         if (typeof p.stamina === 'undefined') { p.stamina = 100; p.staminaCooldown = 0; p.hasShot = false; p.pushCooldown = 0; p.pushAnim = 0; }
                         if (p.buffs && p.buffs.dashTimer > 0) p.buffs.dashTimer--;
                         
+                        // İTTİRME SİSTEMİ (Topa Etki Etmez)
                         if (p.inputs.push && p.pushCooldown <= 0) {
                             p.pushCooldown = p2pState.settings.ittirmeSure * 60;
                             p.pushAnim = 20; 
@@ -855,13 +856,6 @@
                                         op.vy += Math.sin(angle) * p2pState.settings.ittirmeGucu;
                                     }
                                 }
-                            }
-                            let bdx = p2pState.ball.x - p.x; let bdy = p2pState.ball.y - p.y;
-                            let bDist = Math.hypot(bdx, bdy);
-                            if (bDist < p.radius * 6) {
-                                let angle = Math.atan2(bdy, bdx);
-                                p2pState.ball.vx += Math.cos(angle) * (p2pState.settings.ittirmeGucu * 0.7);
-                                p2pState.ball.vy += Math.sin(angle) * (p2pState.settings.ittirmeGucu * 0.7);
                             }
                         }
                         if (p.pushCooldown > 0) p.pushCooldown--;
@@ -879,7 +873,6 @@
                         }
                         if (p.buffs && p.buffs.dashTimer > 0) ivme *= 1.8;
                         
-                        // YENİ HAREKET KODU (Vektörel Çapraz Düzeltme)
                         let hareketX = 0; let hareketY = 0;
                         if (p.inputs.up) hareketY -= 1; 
                         if (p.inputs.down) hareketY += 1; 
@@ -1128,7 +1121,6 @@
                                 else if (p.stamina < 100) p.stamina += 0.5; 
                             }
                             
-                            // YENİ LOBİ HAREKET KODU
                             let hareketX = 0; let hareketY = 0;
                             if (p.inputs.up) hareketY -= 1; 
                             if (p.inputs.down) hareketY += 1; 
