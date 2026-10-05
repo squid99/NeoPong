@@ -32,6 +32,13 @@
         #listeIcerik { list-style: none; padding: 0; margin: 0; font-size: 14px; }
         #listeIcerik li { margin-bottom: 8px; padding-left: 5px; }
 
+        /* YENİ: CHAT KUTUSU TASARIMI */
+        #chatAlani { position: absolute; bottom: 20px; left: 20px; width: 320px; max-height: 250px; display: none; flex-direction: column; z-index: 60; pointer-events: auto; }
+        #mesajGecmisi { flex-grow: 1; background: rgba(0, 0, 0, 0.5); border-radius: 8px 8px 0 0; padding: 10px; overflow-y: auto; color: white; font-size: 14px; margin: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+        #mesajGecmisi li { text-shadow: 1px 1px 2px black; word-wrap: break-word; }
+        #chatInput { width: 100%; box-sizing: border-box; background: rgba(0, 0, 0, 0.7); border: 1px solid #555; border-radius: 0 0 8px 8px; color: white; padding: 8px; font-size: 14px; outline: none; margin: 0; }
+        #chatInput:focus { border-color: #f1c40f; }
+
         #mobilKontroller { display: none; position: absolute; bottom: 0; left: 0; width: 100vw; height: 100vh; z-index: 100; pointer-events: none; }
         #joystickAlan { position: absolute; bottom: 100px; left: 40px; width: 140px; height: 140px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; pointer-events: auto; }
         #joystickTop { position: absolute; top: 35px; left: 35px; width: 70px; height: 70px; background: rgba(255,255,255,0.6); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
@@ -44,6 +51,12 @@
     
     <canvas id="oyunEkrani"></canvas>
     
+    <!-- YENİ: CHAT ALANI -->
+    <div id="chatAlani">
+        <ul id="mesajGecmisi"></ul>
+        <input type="text" id="chatInput" placeholder="Mesaj yaz (Açmak için Enter)..." autocomplete="off">
+    </div>
+
     <div id="uiKatmani">
         <div id="menu">
             <h1 style="font-size: 3em; margin-top: 0;">NeoPong</h1>
@@ -104,6 +117,49 @@
         const durumMetni = document.getElementById('durum');
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
+
+        // YENİ: CHAT ELEMENTLERİ
+        const chatAlani = document.getElementById('chatAlani');
+        const mesajGecmisi = document.getElementById('mesajGecmisi');
+        const chatInput = document.getElementById('chatInput');
+
+        function mesajEkle(gonderen, mesaj, renk = "#f1c40f") {
+            const li = document.createElement('li');
+            li.innerHTML = `<b style="color:${renk}">${gonderen}:</b> ${mesaj}`;
+            mesajGecmisi.appendChild(li);
+            mesajGecmisi.scrollTop = mesajGecmisi.scrollHeight; // Otomatik aşağı kaydır
+        }
+
+        // Chat Gönderme İşlemi
+        chatInput.addEventListener('keydown', (e) => {
+            e.stopPropagation(); // Chat'e yazarken oyun tuşlarını engelle
+            if (e.key === 'Enter') {
+                if (chatInput.value.trim() !== '') {
+                    const msg = chatInput.value.trim();
+                    chatInput.value = '';
+                    chatInput.blur(); // Mesaj atınca oyuna geri dön
+
+                    if (isOfficial) {
+                        socket.emit('chat-mesaj', msg);
+                    } else if (isHost) {
+                        mesajEkle(myNickname, msg, "#3498db"); // Kendi mesajım
+                        const chatPaketi = JSON.stringify({ type: 'chat', gonderen: myNickname, mesaj: msg });
+                        for (let id in channels) {
+                            if (channels[id].readyState === 'open') channels[id].send(chatPaketi);
+                        }
+                    } else if (isClient && hostChannel && hostChannel.readyState === 'open') {
+                        hostChannel.send(JSON.stringify({ type: 'chat-gonder', mesaj: msg }));
+                    }
+                } else {
+                    chatInput.blur(); // Boşken entera basarsa sadece oyuna döner
+                }
+            }
+        });
+
+        // Resmi sunucudan gelen chat mesajı
+        socket.on('chat-mesaj', (data) => {
+            mesajEkle(data.gonderen, data.mesaj, "#e74c3c");
+        });
 
         function resizeCanvas() { 
             canvas.width = window.innerWidth; 
@@ -366,6 +422,14 @@
         }
 
         window.addEventListener('keydown', (e) => {
+            // SOHBET KUTUSU ODAĞI KONTROLÜ
+            if (e.key === 'Enter' && document.activeElement !== chatInput && (isOfficial || isHost || isClient)) {
+                chatInput.focus();
+                e.preventDefault();
+                return;
+            }
+            if (document.activeElement === chatInput) return; // Yazı yazarken karakter hareket etmesin
+
             if (['w', 'W', 'ArrowUp'].includes(e.key)) inputs.up = true;
             if (['s', 'S', 'ArrowDown'].includes(e.key)) inputs.down = true;
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = true;
@@ -376,6 +440,8 @@
         });
 
         window.addEventListener('keyup', (e) => {
+            if (document.activeElement === chatInput) return;
+
             if (['w', 'W', 'ArrowUp'].includes(e.key)) inputs.up = false;
             if (['s', 'S', 'ArrowDown'].includes(e.key)) inputs.down = false;
             if (['a', 'A', 'ArrowLeft'].includes(e.key)) inputs.left = false;
@@ -386,11 +452,11 @@
         });
 
         window.addEventListener('mousedown', (e) => {
-            if (e.button === 0 && !inputs.chargeShoot) { inputs.chargeShoot = true; veriGonder(); }
+            if (e.button === 0 && !inputs.chargeShoot && e.target !== chatInput) { inputs.chargeShoot = true; veriGonder(); }
         });
 
         window.addEventListener('mouseup', (e) => {
-            if (e.button === 0) { triggerShoot(); }
+            if (e.button === 0 && e.target !== chatInput) { triggerShoot(); }
         });
 
         const mobilKontroller = document.getElementById('mobilKontroller');
@@ -454,6 +520,7 @@
             resizeCanvas();
             kontrolPaneli.style.display = "none";
             sagUstKisim.style.display = "flex";
+            chatAlani.style.display = "flex"; // CHAT'İ GÖSTER
             document.getElementById('btnMacBitir').style.display = "none";
             document.getElementById('oyuncuListesi').style.display = "none";
 
@@ -506,6 +573,7 @@
             resizeCanvas();
             kontrolPaneli.style.display = "block";
             sagUstKisim.style.display = "flex";
+            chatAlani.style.display = "flex"; // CHAT'İ GÖSTER
             document.getElementById('oyuncuListesi').style.display = "block";
 
             socket.emit('join-p2p', { roomId: oda, nick: myNickname }); 
@@ -780,7 +848,6 @@
                     let kaleUst = (p2pState.sahaH / 2) - (p2pState.kaleBoyutu / 2); 
                     let kaleAlt = (p2pState.sahaH / 2) + (p2pState.kaleBoyutu / 2);
 
-                    // YENİ DİREK ÇARPIŞMA FİZİKLERİ
                     let direkler = [
                         { x: 0, y: kaleUst, r: 6 },
                         { x: 0, y: kaleAlt, r: 6 },
@@ -806,7 +873,6 @@
                         }
                     }
 
-                    // ALT VE ÜST DUVAR ÇARPIŞMALARI
                     if (p2pState.ball.y < p2pState.ball.radius) { 
                         p2pState.ball.vy *= -1; 
                         p2pState.ball.y = p2pState.ball.radius; 
@@ -816,12 +882,10 @@
                         p2pState.ball.y = p2pState.sahaH - p2pState.ball.radius; 
                     }
                     
-                    // KALE FİLELERİ VE SAĞ/SOL DUVAR ÇARPIŞMALARI
                     if (p2pState.ball.y > kaleUst && p2pState.ball.y < kaleAlt) {
                         let kaleDerinlik = 42; 
                         
                         if (p2pState.ball.x < 0) {
-                            // Sol Kale İçi (File)
                             if (p2pState.ball.x < -kaleDerinlik + p2pState.ball.radius) {
                                 p2pState.ball.x = -kaleDerinlik + p2pState.ball.radius;
                                 p2pState.ball.vx *= -0.2; 
@@ -845,7 +909,6 @@
                                 }, 3000);
                             }
                         } else if (p2pState.ball.x > p2pState.sahaW) {
-                            // Sağ Kale İçi (File)
                             if (p2pState.ball.x > p2pState.sahaW + kaleDerinlik - p2pState.ball.radius) {
                                 p2pState.ball.x = p2pState.sahaW + kaleDerinlik - p2pState.ball.radius;
                                 p2pState.ball.vx *= -0.2;
@@ -870,7 +933,6 @@
                             }
                         }
                     } else {
-                        // Normal Sağ ve Sol Saha Çizgileri
                         if (p2pState.ball.x < p2pState.ball.radius) { 
                             p2pState.ball.vx *= -1; 
                             p2pState.ball.x = p2pState.ball.radius; 
@@ -1003,12 +1065,23 @@
                         pozisyonSifirla(kimlik);
                     } else if (mesaj.type === 'p2p-ping') {
                         channel.send(JSON.stringify({ type: 'p2p-pong', time: mesaj.time }));
+                    } else if (mesaj.type === 'chat-gonder') {
+                        // İstemciden Host'a gelen sohbet mesajını herkese dağıt
+                        let gonderenNick = p2pState.players[kimlik] ? p2pState.players[kimlik].nick : "Oyuncu";
+                        mesajEkle(gonderenNick, mesaj.mesaj, "#e74c3c");
+                        const chatPaketi = JSON.stringify({ type: 'chat', gonderen: gonderenNick, mesaj: mesaj.mesaj });
+                        for (let id in channels) {
+                            if (channels[id].readyState === 'open') channels[id].send(chatPaketi);
+                        }
                     }
                 } else if (!isHost) { 
                     if (mesaj.type === 'state') {
                         sonGelenState = mesaj.data;
                     } else if (mesaj.type === 'p2p-pong') {
                         currentPing = Date.now() - mesaj.time;
+                    } else if (mesaj.type === 'chat') {
+                        // Host'tan gelen chat mesajını ekrana yaz
+                        mesajEkle(mesaj.gonderen, mesaj.mesaj, "#e74c3c");
                     }
                 }
             };
