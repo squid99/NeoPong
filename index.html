@@ -27,12 +27,16 @@
         #btnMacBitir { background-color: #8e44ad; color: white; display: none; margin: 0; padding: 8px 15px; font-size: 14px; }
         #btnOdadanCik { background-color: #e67e22; color: white; margin: 0; padding: 8px 15px; font-size: 14px; }
 
-        #oyuncuListesi { background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #555; min-width: 150px; display: none; }
-        #oyuncuListesi h3 { margin: 0 0 10px 0; font-size: 16px; color: #f1c40f; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center; }
-        #listeIcerik { list-style: none; padding: 0; margin: 0; font-size: 14px; }
-        #listeIcerik li { margin-bottom: 8px; padding-left: 5px; }
+        /* YENİ: ÇİFT TARAFLI TAKIM LİSTELERİ */
+        .takim-listesi { position: absolute; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #555; min-width: 150px; display: none; z-index: 50; }
+        .takim-listesi h3 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center; }
+        .takim-listesi ul { list-style: none; padding: 0; margin: 0; font-size: 14px; color: white; }
+        .takim-listesi li { margin-bottom: 8px; padding-left: 5px; text-shadow: 1px 1px 2px black; }
+        
+        #takimMaviListe { left: 20px; top: 20px; border-color: #3498db; }
+        #takimKirmiziListe { right: 20px; top: 70px; border-color: #e74c3c; } 
+        #takimIzleyiciListe { right: 20px; top: 200px; border-color: #7f8c8d; }
 
-        /* YENİ: CHAT KUTUSU TASARIMI */
         #chatAlani { position: absolute; bottom: 20px; left: 20px; width: 320px; max-height: 250px; display: none; flex-direction: column; z-index: 60; pointer-events: auto; }
         #mesajGecmisi { flex-grow: 1; background: rgba(0, 0, 0, 0.5); border-radius: 8px 8px 0 0; padding: 10px; overflow-y: auto; color: white; font-size: 14px; margin: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
         #mesajGecmisi li { text-shadow: 1px 1px 2px black; word-wrap: break-word; }
@@ -51,7 +55,20 @@
     
     <canvas id="oyunEkrani"></canvas>
     
-    <!-- YENİ: CHAT ALANI -->
+    <!-- YENİ TAKIM LİSTELERİ -->
+    <div id="takimMaviListe" class="takim-listesi">
+        <h3 style="color:#3498db">Mavi Takım</h3>
+        <ul id="listeMavi"></ul>
+    </div>
+    <div id="takimKirmiziListe" class="takim-listesi">
+        <h3 style="color:#e74c3c">Kırmızı Takım</h3>
+        <ul id="listeKirmizi"></ul>
+    </div>
+    <div id="takimIzleyiciListe" class="takim-listesi">
+        <h3 style="color:#7f8c8d">İzleyiciler</h3>
+        <ul id="listeIzleyici"></ul>
+    </div>
+
     <div id="chatAlani">
         <ul id="mesajGecmisi"></ul>
         <input type="text" id="chatInput" placeholder="Mesaj yaz (Açmak için Enter)..." autocomplete="off">
@@ -92,10 +109,6 @@
                 <button id="btnMacBitir">Maçı Bitir</button>
                 <button id="btnOdadanCik">Menüye Dön</button>
             </div>
-            <div id="oyuncuListesi">
-                <h3>Oyuncular</h3>
-                <ul id="listeIcerik"></ul>
-            </div>
         </div>
 
         <div id="mobilKontroller">
@@ -118,32 +131,34 @@
         const canvas = document.getElementById('oyunEkrani');
         const ctx = canvas.getContext('2d');
 
-        // YENİ: CHAT ELEMENTLERİ
         const chatAlani = document.getElementById('chatAlani');
         const mesajGecmisi = document.getElementById('mesajGecmisi');
         const chatInput = document.getElementById('chatInput');
+
+        let sonGelenState = null;
 
         function mesajEkle(gonderen, mesaj, renk = "#f1c40f") {
             const li = document.createElement('li');
             li.innerHTML = `<b style="color:${renk}">${gonderen}:</b> ${mesaj}`;
             mesajGecmisi.appendChild(li);
-            mesajGecmisi.scrollTop = mesajGecmisi.scrollHeight; // Otomatik aşağı kaydır
+            mesajGecmisi.scrollTop = mesajGecmisi.scrollHeight; 
         }
 
-        // Chat Gönderme İşlemi
         chatInput.addEventListener('keydown', (e) => {
-            e.stopPropagation(); // Chat'e yazarken oyun tuşlarını engelle
+            e.stopPropagation(); 
             if (e.key === 'Enter') {
                 if (chatInput.value.trim() !== '') {
                     const msg = chatInput.value.trim();
                     chatInput.value = '';
-                    chatInput.blur(); // Mesaj atınca oyuna geri dön
+                    chatInput.blur(); 
 
                     if (isOfficial) {
                         socket.emit('chat-mesaj', msg);
                     } else if (isHost) {
-                        mesajEkle(myNickname, msg, "#3498db"); // Kendi mesajım
-                        const chatPaketi = JSON.stringify({ type: 'chat', gonderen: myNickname, mesaj: msg });
+                        let myTeam = p2pState.players[socket.id] ? p2pState.players[socket.id].team : 'spectator';
+                        let teamColor = myTeam === 'red' ? '#e74c3c' : (myTeam === 'blue' ? '#3498db' : '#7f8c8d');
+                        mesajEkle(myNickname, msg, teamColor); 
+                        const chatPaketi = JSON.stringify({ type: 'chat', gonderen: myNickname, mesaj: msg, renk: teamColor });
                         for (let id in channels) {
                             if (channels[id].readyState === 'open') channels[id].send(chatPaketi);
                         }
@@ -151,14 +166,24 @@
                         hostChannel.send(JSON.stringify({ type: 'chat-gonder', mesaj: msg }));
                     }
                 } else {
-                    chatInput.blur(); // Boşken entera basarsa sadece oyuna döner
+                    chatInput.blur(); 
                 }
             }
         });
 
-        // Resmi sunucudan gelen chat mesajı
+        // RESMİ SUNUCU İÇİN CHAT RENGİ ÇÖZÜMÜ
         socket.on('chat-mesaj', (data) => {
-            mesajEkle(data.gonderen, data.mesaj, "#e74c3c");
+            let gonderenRenk = "#ffffff";
+            if (sonGelenState && sonGelenState.players) {
+                for (let id in sonGelenState.players) {
+                    if (sonGelenState.players[id].nick === data.gonderen) {
+                        let takim = sonGelenState.players[id].team;
+                        gonderenRenk = takim === 'red' ? '#e74c3c' : (takim === 'blue' ? '#3498db' : '#7f8c8d');
+                        break;
+                    }
+                }
+            }
+            mesajEkle(data.gonderen, data.mesaj, gonderenRenk);
         });
 
         function resizeCanvas() { 
@@ -187,11 +212,38 @@
 
         let myNickname = "Oyuncu";
         window.currentZoom = 1;
-        let sonGelenState = null;
+        
+        let sonListeCiktisi = "";
+        function listeleriGuncelle(state) {
+            if (!state || !state.players) return;
+            let currentData = JSON.stringify(Object.values(state.players).map(p => p.nick + p.team));
+            if (currentData === sonListeCiktisi) return; 
+            sonListeCiktisi = currentData;
+
+            const lMavi = document.getElementById('listeMavi');
+            const lKirmizi = document.getElementById('listeKirmizi');
+            const lIzleyici = document.getElementById('listeIzleyici');
+            
+            lMavi.innerHTML = ''; lKirmizi.innerHTML = ''; lIzleyici.innerHTML = '';
+
+            for (let id in state.players) {
+                let p = state.players[id];
+                let isMe = (id === socket.id);
+                let ext = isMe ? ' (Sen)' : '';
+                if (p.team === 'blue') {
+                    lMavi.innerHTML += `<li>- ${p.nick}${ext}</li>`;
+                } else if (p.team === 'red') {
+                    lKirmizi.innerHTML += `<li>- ${p.nick}${ext}</li>`;
+                } else {
+                    lIzleyici.innerHTML += `<li>- ${p.nick}${ext}</li>`;
+                }
+            }
+        }
 
         function cizimiGuncelle(state) {
             if (!state || !state.ball || !state.sahaW) return;
             sonGelenState = state;
+            listeleriGuncelle(state); // Listeleri oyun döngüsünde yenile
 
             if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
                 resizeCanvas();
@@ -298,7 +350,8 @@
 
             ctx.beginPath(); 
             ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
-            ctx.fillStyle = "white"; 
+            // EĞER TOP KAYGANSA RENGİ PARLAK MAVİMSİ OLSUN (Görsel Geribildirim)
+            ctx.fillStyle = (state.ball.powerShotActive && state.ball.powerShotTimer > 0) ? "#00ffff" : "white"; 
             ctx.fill(); 
             ctx.strokeStyle = "black"; 
             ctx.lineWidth = 2; 
@@ -422,13 +475,12 @@
         }
 
         window.addEventListener('keydown', (e) => {
-            // SOHBET KUTUSU ODAĞI KONTROLÜ
             if (e.key === 'Enter' && document.activeElement !== chatInput && (isOfficial || isHost || isClient)) {
                 chatInput.focus();
                 e.preventDefault();
                 return;
             }
-            if (document.activeElement === chatInput) return; // Yazı yazarken karakter hareket etmesin
+            if (document.activeElement === chatInput) return;
 
             if (['w', 'W', 'ArrowUp'].includes(e.key)) inputs.up = true;
             if (['s', 'S', 'ArrowDown'].includes(e.key)) inputs.down = true;
@@ -520,9 +572,12 @@
             resizeCanvas();
             kontrolPaneli.style.display = "none";
             sagUstKisim.style.display = "flex";
-            chatAlani.style.display = "flex"; // CHAT'İ GÖSTER
+            chatAlani.style.display = "flex"; 
             document.getElementById('btnMacBitir').style.display = "none";
-            document.getElementById('oyuncuListesi').style.display = "none";
+            
+            document.getElementById('takimMaviListe').style.display = "none";
+            document.getElementById('takimKirmiziListe').style.display = "none";
+            document.getElementById('takimIzleyiciListe').style.display = "none";
 
             socket.emit('join-official'); 
             socket.on('oyunDurumu', (state) => {
@@ -559,7 +614,8 @@
         };
 
         const SAHALAR = { 'kucuk': { w: 1050, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
-        let p2pState = { players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [], yeteneklerAcik: true };
+        // YENİ: Ball objesine powerShotActive ve powerShotTimer eklendi
+        let p2pState = { players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10, powerShotActive: false, powerShotTimer: 0 }, score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [], yeteneklerAcik: true };
         let gameLoopActif = false, oyunBeklemede = false, frameCount = 0;
 
         document.getElementById('btnP2P').addEventListener('click', () => {
@@ -573,8 +629,11 @@
             resizeCanvas();
             kontrolPaneli.style.display = "block";
             sagUstKisim.style.display = "flex";
-            chatAlani.style.display = "flex"; // CHAT'İ GÖSTER
-            document.getElementById('oyuncuListesi').style.display = "block";
+            chatAlani.style.display = "flex"; 
+            
+            document.getElementById('takimMaviListe').style.display = "block";
+            document.getElementById('takimKirmiziListe').style.display = "block";
+            document.getElementById('takimIzleyiciListe').style.display = "block";
 
             socket.emit('join-p2p', { roomId: oda, nick: myNickname }); 
             p2pState.players[socket.id] = { 
@@ -602,14 +661,8 @@
             if (isHost) startHostLoop(); else isClient = true;
         });
 
-        socket.on('player-list', (players) => {
-            const liste = document.getElementById('listeIcerik');
-            liste.innerHTML = '';
-            for (let id in players) {
-                let current = (id === socket.id) ? ' (Sen)' : '';
-                liste.innerHTML += `<li>- ${players[id].nick}${current}</li>`;
-            }
-        });
+        // Eski oyuncu listesi artık cizimiGuncelle içinden yapılıyor
+        socket.on('player-list', (players) => {});
 
         function arayuzuHostOlarakKur() {
             durumMetni.style.display = "none"; 
@@ -669,7 +722,7 @@
         }
 
         function santraYap() { 
-            p2pState.ball = { x: p2pState.sahaW / 2, y: p2pState.sahaH / 2, vx: 0, vy: 0, radius: 10 }; 
+            p2pState.ball = { x: p2pState.sahaW / 2, y: p2pState.sahaH / 2, vx: 0, vy: 0, radius: 10, powerShotActive: false, powerShotTimer: 0 }; 
             p2pState.powerups = []; 
             for (let id in p2pState.players) pozisyonSifirla(id); 
         }
@@ -779,6 +832,11 @@
                         let temasMesafesi = p.radius + p2pState.ball.radius; 
                         
                         if (mesafe < temasMesafesi) {
+                            // BİRİSİ TOPA DOKUNDUĞUNDA SÜRTÜNMEYİ NORMALE DÖNDÜR (Şutu atan kişi değildiğinden emin olmak için 10 framelik pay)
+                            if (p2pState.ball.powerShotActive && p2pState.ball.powerShotTimer < 290) {
+                                p2pState.ball.powerShotActive = false;
+                            }
+
                             let overlap = temasMesafesi - mesafe; 
                             let nx = dx / (mesafe || 1); 
                             let ny = dy / (mesafe || 1);
@@ -807,6 +865,9 @@
                             if (p.buffs && p.buffs.powerShotReady) { 
                                 vurusHizi = 11.5; 
                                 p.buffs.powerShotReady = false; 
+                                // YENİ: KAYGAN ŞUT AKTİFLEŞTİRİLDİ
+                                p2pState.ball.powerShotActive = true;
+                                p2pState.ball.powerShotTimer = 300; // 5 saniye
                             }
                             p2pState.ball.vx = Math.cos(aci) * vurusHizi; 
                             p2pState.ball.vy = Math.sin(aci) * vurusHizi;
@@ -840,8 +901,19 @@
                     p2pState.ball.x += p2pState.ball.vx; 
                     p2pState.ball.y += p2pState.ball.vy; 
                     
-                    p2pState.ball.vx *= 0.975; 
-                    p2pState.ball.vy *= 0.975;
+                    // YENİ: KAYGAN BUZ FİZİĞİ SÜRTÜNMESİ
+                    if (p2pState.ball.powerShotActive && p2pState.ball.powerShotTimer > 0) {
+                        p2pState.ball.powerShotTimer--;
+                        p2pState.ball.vx *= 0.995; // Sürtünme çok düşük (Buz gibi kayar)
+                        p2pState.ball.vy *= 0.995;
+                        if (p2pState.ball.powerShotTimer <= 0) {
+                            p2pState.ball.powerShotActive = false;
+                        }
+                    } else {
+                        p2pState.ball.vx *= 0.975; // Normal sürtünme
+                        p2pState.ball.vy *= 0.975;
+                    }
+
                     if (Math.abs(p2pState.ball.vx) < 0.05) p2pState.ball.vx = 0;
                     if (Math.abs(p2pState.ball.vy) < 0.05) p2pState.ball.vy = 0;
 
@@ -1066,10 +1138,13 @@
                     } else if (mesaj.type === 'p2p-ping') {
                         channel.send(JSON.stringify({ type: 'p2p-pong', time: mesaj.time }));
                     } else if (mesaj.type === 'chat-gonder') {
-                        // İstemciden Host'a gelen sohbet mesajını herkese dağıt
-                        let gonderenNick = p2pState.players[kimlik] ? p2pState.players[kimlik].nick : "Oyuncu";
-                        mesajEkle(gonderenNick, mesaj.mesaj, "#e74c3c");
-                        const chatPaketi = JSON.stringify({ type: 'chat', gonderen: gonderenNick, mesaj: mesaj.mesaj });
+                        let sender = p2pState.players[kimlik];
+                        let gonderenNick = sender ? sender.nick : "Oyuncu";
+                        let gonderenTakim = sender ? sender.team : "spectator";
+                        let teamColor = gonderenTakim === 'red' ? '#e74c3c' : (gonderenTakim === 'blue' ? '#3498db' : '#7f8c8d');
+                        
+                        mesajEkle(gonderenNick, mesaj.mesaj, teamColor);
+                        const chatPaketi = JSON.stringify({ type: 'chat', gonderen: gonderenNick, mesaj: mesaj.mesaj, renk: teamColor });
                         for (let id in channels) {
                             if (channels[id].readyState === 'open') channels[id].send(chatPaketi);
                         }
@@ -1080,8 +1155,7 @@
                     } else if (mesaj.type === 'p2p-pong') {
                         currentPing = Date.now() - mesaj.time;
                     } else if (mesaj.type === 'chat') {
-                        // Host'tan gelen chat mesajını ekrana yaz
-                        mesajEkle(mesaj.gonderen, mesaj.mesaj, "#e74c3c");
+                        mesajEkle(mesaj.gonderen, mesaj.mesaj, mesaj.renk);
                     }
                 }
             };
