@@ -28,7 +28,6 @@
         #btnMacBitir { background-color: #8e44ad; color: white; display: none; margin: 0; padding: 8px 15px; font-size: 14px; }
         #btnOdadanCik { background-color: #e67e22; color: white; margin: 0; padding: 8px 15px; font-size: 14px; }
 
-        /* TAKIM LİSTELERİ */
         .takim-listesi { position: absolute; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 8px; border: 1px solid #555; min-width: 150px; display: none; z-index: 50; }
         .takim-listesi h3 { margin: 0 0 10px 0; font-size: 16px; border-bottom: 1px solid #444; padding-bottom: 5px; text-align: center; }
         .takim-listesi ul { list-style: none; padding: 0; margin: 0; font-size: 14px; color: white; }
@@ -52,7 +51,6 @@
         #btnMobilSprint { position: absolute; bottom: 190px; right: 40px; width: 70px; height: 70px; border-radius: 50%; background: rgba(46, 204, 113, 0.6); border: 2px solid rgba(46, 204, 113, 0.8); color: white; font-weight: bold; font-size: 16px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
         #btnMobilIttir { position: absolute; bottom: 145px; right: 110px; width: 60px; height: 60px; border-radius: 50%; background: rgba(52, 152, 219, 0.6); border: 2px solid rgba(52, 152, 219, 0.8); color: white; font-weight: bold; font-size: 14px; pointer-events: auto; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
 
-        /* YENİ: GELİŞMİŞ AYARLAR MODALI */
         #gelismisAyarlarModal { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:rgba(20,20,20,0.95); padding:20px; border:2px solid #f39c12; border-radius:10px; z-index:200; color:white; width: 340px; box-shadow: 0 0 25px black; pointer-events: auto; }
         .ayar-grid { display:grid; grid-template-columns: 1fr 70px; gap: 8px; align-items: center; margin-bottom: 15px; font-size: 14px; }
         .ayar-grid input { padding: 4px; font-size: 14px; width: 100%; box-sizing: border-box; background: #333; color: white; border: 1px solid #555; }
@@ -62,7 +60,6 @@
     
     <canvas id="oyunEkrani"></canvas>
     
-    <!-- GELİŞMİŞ AYARLAR MODALI -->
     <div id="gelismisAyarlarModal">
         <h3 style="color:#f39c12; margin-top:0; text-align:center;">⚙️ Gelişmiş Oyun Değişkenleri</h3>
         <div class="ayar-grid">
@@ -82,7 +79,6 @@
         </div>
     </div>
 
-    <!-- TAKIM LİSTELERİ -->
     <div id="takimMaviListe" class="takim-listesi">
         <h3 style="color:#3498db">Mavi Takım</h3>
         <ul id="listeMavi"></ul>
@@ -166,7 +162,6 @@
 
         let sonGelenState = null;
 
-        // YENİ: ARAYÜZDEN DEĞİŞKENLERİ UYGULAMA
         window.ayarlariUygula = function() {
             if (!isHost) return;
             p2pState.settings.topSurtunme = parseFloat(document.getElementById('ay_sur').value);
@@ -399,7 +394,6 @@
                 }
             }
 
-            // TOP ÇİZİMİ
             ctx.beginPath(); 
             ctx.arc(state.ball.x, state.ball.y, state.ball.radius, 0, Math.PI * 2);
             ctx.fillStyle = (state.ball.powerShotActive && state.ball.powerShotTimer > 0) ? "#00ffff" : "white"; 
@@ -408,13 +402,11 @@
             ctx.lineWidth = 2; 
             ctx.stroke();
 
-            // OYUNCULARI ÇİZ
             if (state.players) {
                 for (let id in state.players) {
                     let p = state.players[id];
                     if (p.team === 'spectator') continue; 
                     
-                    // İTTİRME ŞOK DALGASI ANİMASYONU
                     if (p.pushAnim > 0) {
                         ctx.beginPath();
                         ctx.arc(p.x, p.y, p.radius + (20 - p.pushAnim) * 5, 0, Math.PI * 2);
@@ -463,14 +455,12 @@
                     ctx.strokeText(p.nick || "Oyuncu", p.x, p.y + p.radius + 16); 
                     ctx.fillText(p.nick || "Oyuncu", p.x, p.y + p.radius + 16);
 
-                    // STAMINA BARI
                     let st = p.stamina !== undefined ? p.stamina : 100;
                     ctx.fillStyle = "rgba(0,0,0,0.6)"; 
                     ctx.fillRect(p.x - 18, p.y + p.radius + 22, 36, 4);
                     ctx.fillStyle = st > 50 ? "#2ecc71" : (st > 20 ? "#f1c40f" : "#e74c3c");
                     ctx.fillRect(p.x - 18, p.y + p.radius + 22, (st / 100) * 36, 4);
 
-                    // İTTİRME (E) COOLDOWN BARI
                     let pc = p.pushCooldown !== undefined ? p.pushCooldown : 0;
                     let maxPc = (state.settings ? state.settings.ittirmeSure : 10) * 60;
                     ctx.fillStyle = "rgba(0,0,0,0.6)"; 
@@ -526,7 +516,6 @@
         }
         requestAnimationFrame(renderLoop);
 
-        // YENİ GİRDİ: push (İttir) eklendi
         const inputs = { up: false, down: false, left: false, right: false, chargeShoot: false, shoot: false, sprint: false, push: false };
         let isOfficial = false;
 
@@ -689,7 +678,6 @@
 
         const SAHALAR = { 'kucuk': { w: 1050, h: 500, goal: 150 }, 'orta': { w: 1400, h: 800, goal: 200 }, 'buyuk': { w: 2000, h: 1200, goal: 300 }, 'anasininki': { w: 4000, h: 2500, goal: 500 } };
         
-        // HOST'A ÖZEL OYUN DEĞİŞKENLERİ MOTORU EKLENDİ
         let p2pState = { 
             players: {}, ball: { x: 700, y: 400, vx: 0, vy: 0, radius: 10, powerShotActive: false, powerShotTimer: 0 }, 
             score: { red: 0, blue: 0 }, mesaj: "TAKIM SEÇİN VE MAÇI BAŞLATIN", isPlaying: false, skorSiniri: 3, kalanSure: 180, sahaW: 1400, sahaH: 800, kaleBoyutu: 200, powerups: [], yeteneklerAcik: true,
@@ -852,24 +840,22 @@
                         if (typeof p.stamina === 'undefined') { p.stamina = 100; p.staminaCooldown = 0; p.hasShot = false; p.pushCooldown = 0; p.pushAnim = 0; }
                         if (p.buffs && p.buffs.dashTimer > 0) p.buffs.dashTimer--;
                         
-                        // İTTİRME SİSTEMİ (E TUŞU)
                         if (p.inputs.push && p.pushCooldown <= 0) {
                             p.pushCooldown = p2pState.settings.ittirmeSure * 60;
-                            p.pushAnim = 20; // 20 frame animasyon süresi
+                            p.pushAnim = 20; 
                             
                             for (let oId in p2pState.players) {
                                 if (oId !== id && p2pState.players[oId].team !== 'spectator') {
                                     let op = p2pState.players[oId];
                                     let dx = op.x - p.x; let dy = op.y - p.y;
                                     let dist = Math.hypot(dx, dy);
-                                    if (dist < p.radius * 6) { // Çarpan 6
+                                    if (dist < p.radius * 6) { 
                                         let angle = Math.atan2(dy, dx);
                                         op.vx += Math.cos(angle) * p2pState.settings.ittirmeGucu;
                                         op.vy += Math.sin(angle) * p2pState.settings.ittirmeGucu;
                                     }
                                 }
                             }
-                            // Topu hafif sarsma
                             let bdx = p2pState.ball.x - p.x; let bdy = p2pState.ball.y - p.y;
                             let bDist = Math.hypot(bdx, bdy);
                             if (bDist < p.radius * 6) {
@@ -881,7 +867,6 @@
                         if (p.pushCooldown > 0) p.pushCooldown--;
                         if (p.pushAnim > 0) p.pushAnim--;
 
-                        // OYUNCU HAREKETLERİ (Değişkenler ayar panelinden çekiliyor)
                         let ivme = p2pState.settings.oyuncuHiz; 
                         if (p.inputs.sprint && p.stamina > 0) { 
                             ivme = p2pState.settings.sprintHiz; 
@@ -894,11 +879,23 @@
                         }
                         if (p.buffs && p.buffs.dashTimer > 0) ivme *= 1.8;
                         
-                        if (p.inputs.up) p.vy -= ivme; 
-                        if (p.inputs.down) p.vy += ivme; 
-                        if (p.inputs.left) p.vx -= ivme; 
-                        if (p.inputs.right) p.vx += ivme;
-                        p.vx *= 0.9; p.vy *= 0.9; 
+                        // YENİ HAREKET KODU (Vektörel Çapraz Düzeltme)
+                        let hareketX = 0; let hareketY = 0;
+                        if (p.inputs.up) hareketY -= 1; 
+                        if (p.inputs.down) hareketY += 1; 
+                        if (p.inputs.left) hareketX -= 1; 
+                        if (p.inputs.right) hareketX += 1;
+
+                        if (hareketX !== 0 || hareketY !== 0) {
+                            let uzunluk = Math.hypot(hareketX, hareketY);
+                            p.vx += (hareketX / uzunluk) * ivme;
+                            p.vy += (hareketY / uzunluk) * ivme;
+                        }
+                        
+                        p.vx *= 0.88; p.vy *= 0.88; 
+                        if (Math.abs(p.vx) < 0.05) p.vx = 0;
+                        if (Math.abs(p.vy) < 0.05) p.vy = 0;
+                        
                         p.x += p.vx; p.y += p.vy;
                         
                         let pad = 200; 
@@ -964,7 +961,6 @@
                             }
                         }
 
-                        // ŞUT (Değişkenler ayar panelinden çekiliyor)
                         if (p.inputs.chargeShoot && !p.hasShot && mesafe <= temasMesafesi + 6) {
                             let aci = Math.atan2(dy, dx); 
                             let vurusHizi = p2pState.settings.sutGucu; 
@@ -1121,6 +1117,7 @@
                         let p = p2pState.players[id]; 
                         if (p.team !== 'spectator') {
                             if (typeof p.stamina === 'undefined') { p.stamina = 100; p.staminaCooldown = 0; p.hasShot = false; p.pushCooldown = 0; p.pushAnim = 0; }
+                            
                             let ivme = p2pState.settings.oyuncuHiz; 
                             if (p.inputs.sprint && p.stamina > 0) { 
                                 ivme = p2pState.settings.sprintHiz; 
@@ -1131,11 +1128,23 @@
                                 else if (p.stamina < 100) p.stamina += 0.5; 
                             }
                             
-                            if (p.inputs.up) p.vy -= ivme; 
-                            if (p.inputs.down) p.vy += ivme; 
-                            if (p.inputs.left) p.vx -= ivme; 
-                            if (p.inputs.right) p.vx += ivme;
-                            p.vx *= 0.9; p.vy *= 0.9; 
+                            // YENİ LOBİ HAREKET KODU
+                            let hareketX = 0; let hareketY = 0;
+                            if (p.inputs.up) hareketY -= 1; 
+                            if (p.inputs.down) hareketY += 1; 
+                            if (p.inputs.left) hareketX -= 1; 
+                            if (p.inputs.right) hareketX += 1;
+
+                            if (hareketX !== 0 || hareketY !== 0) {
+                                let uzunluk = Math.hypot(hareketX, hareketY);
+                                p.vx += (hareketX / uzunluk) * ivme;
+                                p.vy += (hareketY / uzunluk) * ivme;
+                            }
+                            
+                            p.vx *= 0.88; p.vy *= 0.88; 
+                            if (Math.abs(p.vx) < 0.05) p.vx = 0;
+                            if (Math.abs(p.vy) < 0.05) p.vy = 0;
+                            
                             p.x += p.vx; p.y += p.vy;
                         }
                     }
